@@ -29,6 +29,13 @@ class SourceParserTests(unittest.TestCase):
         self.assertEqual(records[0].region, "jp")
         self.assertEqual(records[0].item_type, "tv")
 
+    def test_bangumi_can_exclude_r18_records(self) -> None:
+        payload = {"data": [
+            {"id": 1, "type": 2, "platform": "TV", "name": "Safe", "date": "2026-10-01", "meta_tags": ["日本"]},
+            {"id": 2, "type": 2, "platform": "TV", "name": "Adult", "date": "2026-10-02", "meta_tags": ["日本", "R18"]},
+        ]}
+        self.assertEqual([item.title for item in parse_bangumi_payload(payload, exclude_r18=True)], ["Safe"])
+
     def test_bgmlist_maps_structured_broadcast(self) -> None:
         payload = json.loads((FIXTURES / "bgmlist.json").read_text(encoding="utf-8"))
         records = parse_bgmlist_payload(payload)

@@ -10,17 +10,20 @@ SCHEDULE_SOURCES = {"earliest", "yuc", "bgmlist", "bangumi"}
 DISPLAY_TIMEZONES = {"Asia/Shanghai", "Asia/Tokyo"}
 
 
-def validate_preferences(payload: Any) -> dict[str, str]:
+def validate_preferences(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("preferences must be an object")
     values = {
         "schedule_source": payload.get("schedule_source", "earliest"),
         "display_timezone": payload.get("display_timezone", "Asia/Shanghai"),
+        "exclude_r18": payload.get("exclude_r18", False),
     }
     if not isinstance(values["schedule_source"], str) or values["schedule_source"] not in SCHEDULE_SOURCES:
         raise ValueError("schedule_source must be earliest, yuc, bgmlist, or bangumi")
     if not isinstance(values["display_timezone"], str) or values["display_timezone"] not in DISPLAY_TIMEZONES:
         raise ValueError("display_timezone must be Asia/Shanghai or Asia/Tokyo")
+    if not isinstance(values["exclude_r18"], bool):
+        raise ValueError("exclude_r18 must be a boolean")
     return values
 
 
@@ -301,22 +304,32 @@ class AnimeWebAPI:
             if endpoint == "refresh":
                 import re
 
+                requested_seasons = (payload or {}).get("seasons")
                 season = (payload or {}).get("season") or self.plugin.current_season()
-                if not isinstance(season, str) or not re.fullmatch(r"\d{4}(?:-(01|04|07|10))?", season):
-                    return 400, {"error": "season must be YYYY or YYYY-01, YYYY-04, YYYY-07, or YYYY-10"}
-                seasons = [f"{season}-{month:02d}" for month in (1, 4, 7, 10)] if re.fullmatch(r"\d{4}", season) else [season]
+                if requested_seasons is not None:
+                    if not isinstance(requested_seasons, list) or not requested_seasons or len(requested_seasons) > 4:
+                        return 400, {"error": "seasons must be a list of 1-4 quarter values"}
+                    seasons = requested_seasons
+                elif isinstance(season, str) and re.fullmatch(r"\d{4}", season):
+                    seasons = [f"{season}-{month:02d}" for month in (1, 4, 7, 10)]
+                else:
+                    seasons = [season]
+                if any(not isinstance(value, str) or not re.fullmatch(r"\d{4}-(01|04|07|10)", value) for value in seasons):
+                    return 400, {"error": "season values must be YYYY-01, YYYY-04, YYYY-07, or YYYY-10"}
+                seasons = list(dict.fromkeys(seasons))
                 results = [await self.plugin.refresh_service.refresh(value) for value in seasons]
                 movie_result = await self.plugin.refresh_service.refresh_movies(datetime.now(BJ).date()) if hasattr(self.plugin.refresh_service, "refresh_movies") else {"items": [], "sources": {}}
                 anime_items = {item.key: item for result in results for item in result["items"]}
                 source_status = results[-1]["sources"]
                 if len(results) > 1:
+                    source_names = {name for result in results for name in result["sources"]}
                     source_status = {
                         name: {
-                            **value,
+                            **next((result["sources"][name] for result in reversed(results) if name in result["sources"]), {}),
                             "count": sum(result["sources"].get(name, {}).get("count", 0) for result in results),
                             "season_status": {period: result["sources"].get(name, {}).get("status", "error") for period, result in zip(seasons, results)},
                         }
-                        for name, value in results[-1]["sources"].items()
+                        for name in source_names
                     }
                 return 200, {
                     "count": len(anime_items),

@@ -89,6 +89,15 @@ class MergeTests(unittest.TestCase):
         second = SourceRecord(source="yuc", title="Test Season 2")
         self.assertEqual(len(merge_records([first, second])), 2)
 
+    def test_chinese_season_number_and_punctuation_match_sources_without_ids(self):
+        records = [
+            SourceRecord(source="bgmlist", title="转生贵族、鉴定技能扭转人生 第3期", bangumi_id=123, region="jp"),
+            SourceRecord(source="yuc", title="转生贵族，鉴定技能扭转人生 第三季", region="unknown"),
+        ]
+        merged = merge_records(records)
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(set(merged[0].sources), {"bgmlist", "yuc"})
+
 
 if __name__ == "__main__":
     unittest.main()

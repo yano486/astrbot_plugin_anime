@@ -93,7 +93,7 @@ test('embedded management view works when sandbox blocks localStorage', () => {
 
 test('year options omit invalid dates and include every catalog year', () => {
   const app = setup(async () => ({}));
-  const values = app.run('periodOptions("", [{item_type:"tv",season:"2025-10"},{item_type:"movie",release_date:"2027-04-10"},{item_type:"ova",release_date:"None"}], new Date(2026,10,4)).map(option => option.value).join(",")');
+  const values = app.run('periodOptions("movie", [{item_type:"movie",release_date:"2025-10-01"},{item_type:"movie",release_date:"2027-04-10"},{item_type:"ova",release_date:"None"}], new Date(2026,10,4)).map(option => option.value).join(",")');
   assert.equal(values, '2025,2026,2027');
 });
 
@@ -101,24 +101,46 @@ test('TV and WEB filters use quarters while all types, OVA, and movies use years
   const app = setup(async () => ({}));
   assert.equal(app.run('catalogPeriodMode("tv")'), 'season');
   assert.equal(app.run('catalogPeriodMode("web")'), 'season');
-  assert.equal(app.run('catalogPeriodMode("")'), 'year');
+  assert.equal(app.run('catalogPeriodMode("")'), 'broadcast');
   assert.equal(app.run('catalogPeriodMode("ova")'), 'year');
   assert.equal(app.run('catalogPeriodMode("movie")'), 'year');
+});
+
+test('all-types broadcast choices put the current season first and limit fetching scope', () => {
+  const app = setup(async () => ({}));
+  const options = app.run('periodOptions("", [], new Date(2026,10,4))');
+  assert.equal(options.map(option => option.value).join(","), '2026-10,2026-01,2026-04,2026-07,2026-h1,2026-h2,2026-all');
+  assert.equal(app.run('periodLabel("", "2026-10")'), '秋 · 10月');
+  assert.equal(app.run('periodLabel("", "2026-all")'), '全年');
+  assert.equal(app.run('periodsForSelection("", "2026-h1").join(",")'), '2026-01,2026-04');
+});
+
+test('OVA and movies hide weekday and season-role filters', () => {
+  assert.match(markup, /id="weekday-filter"/);
+  assert.match(markup, /id="role-filter"/);
+  assert.match(source, /updateFilterVisibility/);
+});
+
+test('TV exposes compact weekday shortcuts and fetch button status text', () => {
+  assert.match(markup, /id="weekday-buttons"/);
+  assert.match(markup, /data-weekday="1"/);
+  assert.match(source, /正在获取/);
+  assert.match(source, /已获取最新番剧表/);
 });
 
 test('season choices show the previous, current, and next quarter without a duplicate masthead control', () => {
   const app = setup(async () => ({}));
   const values = app.run('seasonPeriodOptions(new Date(2026,10,4)).map(option => option.value).join(",")');
-  assert.equal(values, '2026-07,2026-10,2027-01');
+  assert.equal(values, '2026-10,2026-01,2026-04,2026-07');
   assert.doesNotMatch(markup, /id="season"/);
   assert.match(markup, /id="period"/);
 });
 
-test('all-types year filter matches TV seasons and movie release years', () => {
+test('all-types broadcast filter matches seasons and movie release months', () => {
   const app = setup(async () => ({}));
-  assert.equal(app.run('matchesCatalogPeriod({item_type:"tv",season:"2026-10"}, "", "2026")'), true);
-  assert.equal(app.run('matchesCatalogPeriod({item_type:"movie",release_date:"2026-12-01"}, "", "2026")'), true);
-  assert.equal(app.run('matchesCatalogPeriod({item_type:"web",season:"2025-10"}, "", "2026")'), false);
+  assert.equal(app.run('matchesCatalogPeriod({item_type:"tv",season:"2026-10"}, "", "2026-10")'), true);
+  assert.equal(app.run('matchesCatalogPeriod({item_type:"movie",release_date:"2026-10-01"}, "", "2026-10")'), true);
+  assert.equal(app.run('matchesCatalogPeriod({item_type:"web",season:"2025-10"}, "", "2026-10")'), false);
 });
 
 test('year catalog queries load all cached seasons for client-side year filtering', async () => {
@@ -127,7 +149,7 @@ test('year catalog queries load all cached seasons for client-side year filterin
     calls.push({ endpoint, params });
     return { items: [], count: 0, updated_at: "" };
   });
-  app.element('#type').value = '';
+  app.element('#type').value = 'movie';
   app.element('#period').value = '2026';
   await app.run('configurePeriodControl(); loadItems(false)');
   assert.equal(calls[0].params.season, 'all');
@@ -161,6 +183,8 @@ test('settings page exposes whitelist, test-push, and remote WebUI status', () =
   assert.match(markup, /id="test-reminder-card"/);
   assert.match(markup, /id="test-update-card"/);
   assert.match(markup, /id="toggle-theme"/);
+  assert.match(markup, /id="exclude-r18"/);
+  assert.match(markup, /排除 R18/);
   assert.match(source, /removeWhitelist/);
   assert.match(source, /class="button button-quiet remove-whitelist"/);
 });

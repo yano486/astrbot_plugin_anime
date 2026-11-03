@@ -70,7 +70,8 @@ class BgmlistAdapter(SourceAdapter):
         records = []
         urls = []
         try:
-            for offset in range(3):
+            # Keep adjacent-month broadcasts in the selected quarter's catalog.
+            for offset in range(-1, 3):
                 month_index = year * 12 + month - 1 + offset
                 current_year, zero_month = divmod(month_index, 12)
                 current_month = zero_month + 1

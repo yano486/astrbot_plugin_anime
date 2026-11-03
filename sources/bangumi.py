@@ -19,7 +19,11 @@ def _region(tags: list[dict[str, Any]]) -> str:
     return "unknown"
 
 
-def parse_bangumi_payload(payload: dict[str, Any] | list[dict[str, Any]], source_url: str = "") -> list[SourceRecord]:
+def parse_bangumi_payload(
+    payload: dict[str, Any] | list[dict[str, Any]],
+    source_url: str = "",
+    exclude_r18: bool = False,
+) -> list[SourceRecord]:
     values = payload.get("data", []) if isinstance(payload, dict) else payload
     records: list[SourceRecord] = []
     for item in values or []:
@@ -33,6 +37,11 @@ def parse_bangumi_payload(payload: dict[str, Any] | list[dict[str, Any]], source
             tags = [str(tag) for tag in raw_meta]
         else:
             tags = [str(tag.get("name", "")) for tag in tags_list if isinstance(tag, dict)]
+        if exclude_r18 and any(
+            value.casefold() in {"r18", "18禁", "成人"} or "r18" in value.casefold()
+            for value in tags
+        ):
+            continue
         item_type = str(item.get("platform", "unknown")).lower()
         if item_type == "tv":
             item_type = "tv"
@@ -75,6 +84,7 @@ class BangumiAdapter(SourceAdapter):
     def __init__(self, session: Any = None, api_token: str = ""):
         super().__init__(session)
         self.api_token = api_token.strip()
+        self.exclude_r18 = False
 
     def _headers(self) -> dict[str, str]:
         headers = {"User-Agent": "yano486/astrbot_plugin_anime/0.2 (https://github.com/yano486/astrbot_plugin_anime)"}
@@ -96,7 +106,7 @@ class BangumiAdapter(SourceAdapter):
                     if response.status != 200:
                         return SourceResult(self.name, status="error", error=f"HTTP {response.status}", source_url=url)
                     payload = await response.json()
-                batch = parse_bangumi_payload(payload, url)
+                batch = parse_bangumi_payload(payload, url, self.exclude_r18)
                 for record in batch:
                     record.season = season or f"{year}-{month:02d}"
                 records.extend(batch)
@@ -112,7 +122,9 @@ class BangumiAdapter(SourceAdapter):
         year, month = season_year_month(season)
         records: list[SourceRecord] = []
         statuses: dict[str, str] = {}
-        for offset in range(3):
+        # Include the preceding month so a show that started just before the
+        # quarter is still visible while it remains part of this season's list.
+        for offset in range(-1, 3):
             month_index = year * 12 + month - 1 + offset
             current_year, zero_month = divmod(month_index, 12)
             current_month = zero_month + 1

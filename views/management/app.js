@@ -1,6 +1,6 @@
 const bridge = window.AstrBotPluginView;
 const $ = (selector) => document.querySelector(selector);
-const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", sources: {}, movieSources: {}, preferences: { schedule_source: "earliest", display_timezone: "Asia/Shanghai" }, periodMode: "", periodSelections: { season: "", year: "" } };
+const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", sources: {}, movieSources: {}, preferences: { schedule_source: "earliest", display_timezone: "Asia/Shanghai", exclude_r18: false }, periodMode: "", periodSelections: { season: "", broadcast: "", year: "" } };
 
 function currentSeason(now = new Date()) {
   const month = Math.floor((now.getMonth()) / 3) * 3 + 1;
@@ -8,23 +8,42 @@ function currentSeason(now = new Date()) {
 }
 
 function seasonPeriodOptions(now = new Date()) {
-  const [year, month] = currentSeason(now).split("-").map(Number);
-  const index = [1, 4, 7, 10].indexOf(month);
-  return [-1, 0, 1].map(offset => {
-    const absolute = year * 4 + index + offset;
-    const optionYear = Math.floor(absolute / 4);
-    const optionMonth = [1, 4, 7, 10][((absolute % 4) + 4) % 4];
-    const value = `${optionYear}-${String(optionMonth).padStart(2, "0")}`;
-    return { value, label: value };
-  });
+  const year = now.getFullYear();
+  const months = [1, 4, 7, 10];
+  const current = Math.floor(now.getMonth() / 3) * 3 + 1;
+  return [current, ...months.filter(month => month !== current)].map(month => ({
+    value: `${year}-${String(month).padStart(2, "0")}`,
+    label: periodLabel("season", `${year}-${String(month).padStart(2, "0")}`),
+  }));
 }
 
 function catalogPeriodMode(type) {
-  return type === "tv" || type === "web" ? "season" : "year";
+  if (type === "tv" || type === "web") return "season";
+  if (!type) return "broadcast";
+  return "year";
+}
+
+function periodLabel(type, value) {
+  const match = /^(\d{4})-(01|04|07|10)$/.exec(value || "");
+  if (match) return ({"01": "冬 · 1月", "04": "春 · 4月", "07": "夏 · 7月", "10": "秋 · 10月"})[match[2]];
+  if (value?.endsWith("-h1")) return "上半年";
+  if (value?.endsWith("-h2")) return "下半年";
+  if (value?.endsWith("-all")) return "全年";
+  return /^\d{4}$/.test(value || "") ? `${value} 年` : value || "";
+}
+
+function broadcastPeriodOptions(now = new Date()) {
+  const year = now.getFullYear();
+  const current = currentSeason(now);
+  const seasons = seasonPeriodOptions(now).map(option => ({...option, label: periodLabel("broadcast", option.value)}));
+  return [...seasons, {value: `${year}-h1`, label: "上半年"}, {value: `${year}-h2`, label: "下半年"}, {value: `${year}-all`, label: "全年"}]
+    .sort((a, b) => (a.value === current ? -1 : b.value === current ? 1 : 0));
 }
 
 function periodOptions(type, items = state.items, now = new Date()) {
-  if (catalogPeriodMode(type) === "season") return seasonPeriodOptions(now);
+  const mode = catalogPeriodMode(type);
+  if (mode === "season") return seasonPeriodOptions(now);
+  if (mode === "broadcast") return broadcastPeriodOptions(now);
   const years = new Set();
   for (const item of items || []) {
     if (type && item.item_type !== type) continue;
@@ -36,9 +55,29 @@ function periodOptions(type, items = state.items, now = new Date()) {
   return [...years].sort().map(year => ({ value: year, label: `${year} 年` }));
 }
 
+function periodsForSelection(type, period) {
+  const mode = catalogPeriodMode(type);
+  if (mode === "season") return period ? [period] : [];
+  if (mode !== "broadcast") return [];
+  if (/^\d{4}-(01|04|07|10)$/.test(period || "")) return [period];
+  const match = /^(\d{4})-(h1|h2|all)$/.exec(period || "");
+  if (!match) return [];
+  const months = match[2] === "h1" ? ["01", "04"] : match[2] === "h2" ? ["07", "10"] : ["01", "04", "07", "10"];
+  return months.map(month => `${match[1]}-${month}`);
+}
+
 function matchesCatalogPeriod(item, type, period) {
   if (!period) return true;
-  if (catalogPeriodMode(type) === "season") return !isMovie(item) && item.season === period;
+  const mode = catalogPeriodMode(type);
+  if (mode === "season") return !isMovie(item) && item.season === period;
+  if (mode === "broadcast") {
+    const periods = periodsForSelection(type, period);
+    if (isMovie(item)) {
+      const release = item.release_date || "";
+      return periods.some(value => release.startsWith(value));
+    }
+    return periods.includes(item.season);
+  }
   const year = isMovie(item) ? item.release_date?.slice(0, 4) : item.season?.slice(0, 4);
   return year === period;
 }
@@ -50,7 +89,7 @@ function configurePeriodControl() {
   const type = $("#type").value;
   const mode = catalogPeriodMode(type);
   const options = periodOptions(type);
-  const defaultValue = mode === "season" ? currentSeason() : String(new Date().getFullYear());
+  const defaultValue = mode === "year" ? String(new Date().getFullYear()) : currentSeason();
   const remembered = state.periodSelections[mode];
   const value = options.some(option => option.value === remembered) ? remembered
     : options.some(option => option.value === defaultValue) ? defaultValue
@@ -65,8 +104,27 @@ function configurePeriodControl() {
   select.value = value;
   state.periodMode = mode;
   state.periodSelections[mode] = value;
-  $("#period-label").textContent = mode === "season" ? "季度" : "上映年份";
+  $("#period-label").textContent = mode === "season" ? "季度" : mode === "broadcast" ? "播出时间" : "上映年份";
+  updateFilterVisibility(type);
   window.AnimeControls?.refresh(select);
+}
+
+function syncWeekdayButtons() {
+  const value = $("#weekday").value || "";
+  document.querySelectorAll("#weekday-buttons [data-weekday]").forEach(button => {
+    button.classList.toggle("active", button.dataset.weekday === value);
+    button.setAttribute("aria-pressed", String(button.dataset.weekday === value));
+  });
+}
+
+function updateFilterVisibility(type) {
+  const movie = ["ova", "movie"].includes(type);
+  $("#weekday-filter").hidden = movie;
+  $("#role-filter").hidden = movie;
+  const weekdaySelect = $("#weekday-filter .select-control");
+  if (weekdaySelect) weekdaySelect.hidden = type === "tv";
+  $("#weekday-buttons").hidden = type !== "tv";
+  syncWeekdayButtons();
 }
 
 function safe(value = "") { return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
@@ -122,9 +180,22 @@ function renderSources() {
   Object.entries(sources).forEach(([name, result]) => {
     const chip = document.createElement("span");
     chip.className = `source-chip ${result.status === "error" || result.error ? "error" : ""}`;
-    chip.textContent = `${name} ${result.status === "error" ? "失效" : result.error ? "部分失败" : `${result.count || 0} 条`}`;
+    chip.textContent = `${name} ${result.status === "error" ? "失败" : result.error ? "部分" : `${result.count || 0} 条`}`;
     chip.title = result.error || result.source_url || ""; container.append(chip);
   });
+}
+
+function sourceFailureNotice() {
+  const failures = Object.entries({...state.sources, ...Object.fromEntries(Object.entries(state.movieSources || {}).map(([name, value]) => [`剧场版/OVA · ${name}`, value]))})
+    .filter(([, result]) => result.status === "error" || result.error)
+    .map(([name, result]) => {
+      const error = String(result.error || "");
+      if (/429|限流/i.test(error)) return `${name} 暂时限流`;
+      if (/timeout|超时/i.test(error)) return `${name} 响应超时`;
+      if (/HTTP/i.test(error)) return `${name} 返回网络错误`;
+      return `${name} 未完整返回`;
+    });
+  return failures.length ? `部分来源未完成：${failures.join("、")}，已保留可用结果` : "";
 }
 
 function render() {
@@ -220,19 +291,25 @@ async function resetMovieRelease(item, card) {
   }
 }
 
-async function loadItems(refreshYear = false) {
+async function loadItems(shouldRefresh = false) {
   const requestedMode = state.periodMode;
   const requestedPeriod = $("#period").value;
-  $("#refresh-status").textContent = requestedMode === "year" && refreshYear ? `正在获取 ${requestedPeriod} 年多个季度…` : "正在获取作品目录…";
-  if (requestedMode === "year" && refreshYear) {
-    await bridge.apiPost("refresh", {season: requestedPeriod});
+  const requestedType = $("#type").value;
+  const requestedPeriods = periodsForSelection(requestedType, requestedPeriod);
+  $("#refresh-status").textContent = shouldRefresh ? "正在获取多个来源…" : "正在获取作品目录…";
+  if (shouldRefresh) {
+    const refreshBody = requestedPeriods.length ? {seasons: requestedPeriods} : {season: requestedPeriod};
+    await bridge.apiPost("refresh", refreshBody);
     if (requestedMode !== state.periodMode || requestedPeriod !== $("#period").value) return;
     await loadStatus();
   }
-  const season = requestedMode === "season" ? requestedPeriod : "all";
-  const result = await bridge.apiGet("items", { season });
+  const queryPeriods = requestedPeriods.length ? requestedPeriods : ["all"];
+  const results = await Promise.all(queryPeriods.map(season => bridge.apiGet("items", { season })));
   if (requestedMode !== state.periodMode || requestedPeriod !== $("#period").value) return;
-  state.items = result.items || [];
+  const byKey = new Map();
+  results.flatMap(result => result.items || []).forEach(item => byKey.set(item.key, item));
+  const result = {items: [...byKey.values()], count: byKey.size, updated_at: results.map(value => value.updated_at).filter(Boolean).sort().at(-1) || ""};
+  state.items = result.items;
   configurePeriodControl();
   sourceChoices(); render();
   const itemSelect = $("#test-item");
@@ -373,13 +450,14 @@ async function addUmoTarget() {
 function applyPreferences() {
   $("#schedule-source").value = state.preferences.schedule_source;
   $("#display-timezone").value = state.preferences.display_timezone;
+  $("#exclude-r18").checked = Boolean(state.preferences.exclude_r18);
   window.AnimeControls?.refresh($("#schedule-source"));
   window.AnimeControls?.refresh($("#display-timezone"));
   render();
 }
 
 async function savePreferences() {
-  const values = {schedule_source: $("#schedule-source").value, display_timezone: $("#display-timezone").value};
+  const values = {schedule_source: $("#schedule-source").value, display_timezone: $("#display-timezone").value, exclude_r18: $("#exclude-r18").checked};
   try {
     const result = await bridge.apiPost("preferences", values);
     state.preferences = result.preferences;
@@ -408,15 +486,32 @@ async function logout() {
 }
 
 async function refreshAll() {
-  $("#refresh").disabled = true; $("#refresh-status").textContent = "正在获取多个来源…";
+  const button = $("#refresh");
+  button.disabled = true;
+  button.textContent = "正在获取…";
   try {
-    await bridge.apiPost("refresh", {season: $("#period").value});
-    await loadStatus();
-    await loadItems();
-    $("#save-status").textContent = "获取完成";
+    await loadItems(true);
+    $("#save-status").textContent = sourceFailureNotice() || "已获取最新番剧表";
+    $("#save-status").classList.remove("notice-error");
+    $("#save-status").classList.add("notice-success");
   }
-  catch (error) { $("#refresh-status").textContent = `获取失败：${error.message}`; }
-  finally { $("#refresh").disabled = false; }
+  catch (error) {
+    $("#save-status").textContent = `获取失败：${naturalError(error)}`;
+    $("#save-status").classList.remove("notice-success");
+    $("#save-status").classList.add("notice-error");
+  }
+  finally {
+    button.disabled = false;
+    button.textContent = "获取番表";
+  }
+}
+
+function naturalError(error) {
+  const message = String(error?.message || error || "未知错误");
+  if (/429|限流|too many/i.test(message)) return "来源暂时限流，请稍后再获取";
+  if (/timeout|timed out|超时/i.test(message)) return "来源响应超时，已保留已有数据";
+  if (/network|connect|连接|DNS/i.test(message)) return "网络连接失败，已保留已有数据";
+  return message;
 }
 
 async function init() {
@@ -425,11 +520,16 @@ async function init() {
     configurePeriodControl();
     window.AnimeControls?.enhanceAll();
     setTheme(storedTheme() === "dark" ? "dark" : "light");
-    for (const id of ["query", "region", "weekday", "role", "source"]) $("#" + id).addEventListener(id === "query" ? "input" : "change", render);
-    $("#type").addEventListener("change", () => { configurePeriodControl(); loadItems(state.periodMode === "year"); });
+    for (const id of ["query", "region", "weekday", "role", "source"]) $("#" + id).addEventListener(id === "query" ? "input" : "change", () => { syncWeekdayButtons(); render(); });
+    document.querySelectorAll("#weekday-buttons [data-weekday]").forEach(button => button.addEventListener("click", () => {
+      $("#weekday").value = button.dataset.weekday;
+      syncWeekdayButtons();
+      render();
+    }));
+    $("#type").addEventListener("change", () => { configurePeriodControl(); loadItems(true); });
     $("#period").addEventListener("change", () => {
       state.periodSelections[state.periodMode] = $("#period").value;
-      loadItems(state.periodMode === "year");
+      loadItems(true);
     });
     $("#refresh").addEventListener("click", refreshAll);
     $("#load-subs").addEventListener("click", loadSubscriptions);
@@ -444,7 +544,7 @@ async function init() {
     $("#logout").addEventListener("click", logout);
     $("#show-catalog").addEventListener("click", () => showView("catalog"));
     $("#show-settings").addEventListener("click", () => showView("settings"));
-    await Promise.all([loadStatus(), loadTargets(), loadItems(state.periodMode === "year")]);
+    await Promise.all([loadStatus(), loadTargets(), loadItems(true)]);
   } catch (error) { $("#catalog").innerHTML = `<div class="error">管理页面载入失败：${safe(error.message)}</div>`; }
 }
 

@@ -40,12 +40,22 @@ class WebValidationTests(unittest.TestCase):
 
         self.assertEqual(
             validate_preferences({"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo"}),
-            {"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo"},
+            {"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo", "exclude_r18": False},
         )
         with self.assertRaisesRegex(ValueError, "schedule_source"):
             validate_preferences({"schedule_source": "unknown"})
         with self.assertRaisesRegex(ValueError, "display_timezone"):
             validate_preferences({"display_timezone": "UTC"})
+
+    def test_r18_preference_must_be_boolean(self) -> None:
+        from astrbot_plugin_anime.web_api import validate_preferences
+
+        self.assertEqual(
+            validate_preferences({"exclude_r18": True}),
+            {"schedule_source": "earliest", "display_timezone": "Asia/Shanghai", "exclude_r18": True},
+        )
+        with self.assertRaisesRegex(ValueError, "exclude_r18"):
+            validate_preferences({"exclude_r18": "true"})
 
     def test_umo_target_requires_astrbot_three_part_format(self) -> None:
         from astrbot_plugin_anime.web_api import validate_umo_target

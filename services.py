@@ -20,9 +20,10 @@ class RefreshService:
         ]
 
     async def refresh(self, season: str) -> dict[str, Any]:
+        preferences = self.store.get_preferences() if hasattr(self.store, "get_preferences") else {}
+        self.bangumi.exclude_r18 = bool(preferences.get("exclude_r18", False))
         results: list[SourceResult] = await asyncio.gather(*(adapter.fetch(season) for adapter in self.adapters))
         records = [record for result in results if result.status == "ok" for record in result.records]
-        preferences = self.store.get_preferences() if hasattr(self.store, "get_preferences") else {}
         schedule_source = preferences.get("schedule_source", "earliest")
         items = merge_records(records, schedule_source)
         status = {
@@ -75,6 +76,8 @@ class RefreshService:
         return {"items": items, "sources": status, "updated_at": self.store.state.get("updated_at", "")}
 
     async def refresh_movies(self, today: date):
+        preferences = self.store.get_preferences() if hasattr(self.store, "get_preferences") else {}
+        self.bangumi.exclude_r18 = bool(preferences.get("exclude_r18", False))
         result = await self.bangumi.fetch_movies(today)
         self.store.state["movie_source_status"] = {
             "bangumi": {

@@ -11,6 +11,7 @@ from .models import AnimeItem, Subscription, Target
 DEFAULT_PREFERENCES = {
     "schedule_source": "earliest",
     "display_timezone": "Asia/Shanghai",
+    "exclude_r18": False,
 }
 
 

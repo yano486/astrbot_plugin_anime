@@ -7,8 +7,34 @@ from collections import defaultdict
 from .models import AnimeItem, SourceRecord, utc_now_iso
 
 
+_CJK_DIGITS = {"零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+
+
+def _cjk_number(value: str) -> str:
+    if value.isdigit():
+        return value
+    if value == "十":
+        return "10"
+    if value.startswith("十"):
+        return str(10 + _CJK_DIGITS.get(value[1:], 0))
+    if value.endswith("十"):
+        return str(_CJK_DIGITS.get(value[:-1], 0) * 10)
+    if "十" in value:
+        left, right = value.split("十", 1)
+        return str(_CJK_DIGITS.get(left, 0) * 10 + _CJK_DIGITS.get(right, 0))
+    if all(char in _CJK_DIGITS for char in value):
+        return "".join(str(_CJK_DIGITS[char]) for char in value)
+    return value
+
+
 def normalize_title(value: str) -> str:
     value = unicodedata.normalize("NFKC", value or "").lower()
+    value = re.sub(
+        r"第([0-9零〇一二两三四五六七八九十]+)(季|期|部)",
+        lambda match: f"season{_cjk_number(match.group(1))}",
+        value,
+    )
+    value = re.sub(r"(季|期|部)(?=$|[^\w\u4e00-\u9fff])", "season", value)
     return re.sub(r"[^\w\u4e00-\u9fff]+", "", value)
 
 

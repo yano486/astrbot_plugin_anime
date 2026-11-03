@@ -5,6 +5,7 @@ import vm from 'node:vm';
 
 const source = readFileSync(new URL('../views/management/app.js', import.meta.url), 'utf8');
 const markup = readFileSync(new URL('../views/management/index.html', import.meta.url), 'utf8');
+const styles = readFileSync(new URL('../views/management/style.css', import.meta.url), 'utf8');
 
 class Element {
   value = '';
@@ -104,6 +105,14 @@ test('settings page exposes whitelist, test-push, and remote WebUI status', () =
   assert.match(markup, /id="test-reminder-card"/);
   assert.match(markup, /id="test-update-card"/);
   assert.match(markup, /id="toggle-theme"/);
+});
+
+test('push test panel uses a full-width heading and separate responsive control rows', () => {
+  assert.match(markup, /class="test-push-panel"[\s\S]*class="test-push-heading"/);
+  assert.match(markup, /class="test-push-targets"[\s\S]*id="test-target"[\s\S]*id="test-item"/);
+  assert.match(markup, /class="test-push-actions"[\s\S]*id="test-reminder-card"[\s\S]*id="test-update-card"/);
+  assert.match(styles, /\.test-push-panel\s*\{[^}]*display:\s*grid/s);
+  assert.match(styles, /\.test-push-actions\s*\{[^}]*grid-template-columns/s);
 });
 
 test('YUC remains available in source filter even when the current items lack it', () => {

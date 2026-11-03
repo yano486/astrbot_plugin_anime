@@ -7,46 +7,9 @@ from typing import Any
 
 import aiohttp
 
-try:
-    from astrbot.api import logger
-    from astrbot.api.event import AstrMessageEvent, MessageChain, filter
-    from astrbot.api.star import Context, Star, StarTools, register
-except ImportError:  # Allows parser and unit tests to run outside AstrBot.
-    class _Logger:
-        def info(self, *args, **kwargs): pass
-        def warning(self, *args, **kwargs): pass
-        def error(self, *args, **kwargs): pass
-
-    class _Filter:
-        class PermissionType:
-            ADMIN = "admin"
-
-        @staticmethod
-        def command(*args, **kwargs):
-            return lambda fn: fn
-
-        @staticmethod
-        def permission_type(*args, **kwargs):
-            return lambda fn: fn
-
-    class Star:
-        def __init__(self, context):
-            self.context = context
-
-    class StarTools:
-        @staticmethod
-        def get_data_dir():
-            return Path.cwd() / "data"
-
-    def register(*args, **kwargs):
-        return lambda cls: cls
-
-    logger = _Logger()
-    filter = _Filter()
-    AstrMessageEvent = object
-    Context = object
-    MessageChain = None
-    Plain = None
+from astrbot.api import logger
+from astrbot.api.event import AstrMessageEvent, MessageChain, filter
+from astrbot.api.star import Context, Star, StarTools, register
 
 from .models import Subscription, Target
 from .scheduler import ReminderScheduler
@@ -91,10 +54,11 @@ class AnimePlugin(Star):
     async def terminate(self) -> None:
         if self.scheduler:
             await self.scheduler.stop()
-        if self._initial_refresh and not self._initial_refresh.done():
-            self._initial_refresh.cancel()
-        if self._refresh_task and not self._refresh_task.done():
-            self._refresh_task.cancel()
+        tasks = [task for task in (self._initial_refresh, self._refresh_task) if task]
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
         if self.session and not self.session.closed:
             await self.session.close()
 
@@ -113,15 +77,19 @@ class AnimePlugin(Star):
                 logger.warning(f"[anime] 定时刷新失败: {exc}")
 
     async def _deliver(self, target_id: str, text: str) -> bool:
-        if MessageChain is None:
-            raise RuntimeError("AstrBot message runtime is unavailable")
         chain = MessageChain().message(text)
-        await self.context.send_message(target_id, chain)
+        result = await self.context.send_message(target_id, chain)
+        if result is False:
+            raise RuntimeError("AstrBot reported that the target message was not sent")
         return True
 
     @staticmethod
     def _action_name(event: AstrMessageEvent, action: str) -> tuple[str, str]:
         tokens = str(action or "").strip().split(maxsplit=1)
+        message = str(getattr(event, "message_str", "")).strip().lstrip("/")
+        full = message.split(maxsplit=2)
+        if len(full) >= 2 and full[0].casefold() == "anime":
+            tokens = full[1:]
         if tokens and tokens[0].lstrip("/").casefold() == "anime":
             tokens = tokens[1:]
         elif tokens and tokens[0].lstrip("/").casefold().startswith("anime") and len(tokens[0]) > 5:
@@ -143,9 +111,11 @@ class AnimePlugin(Star):
         return aliases.get(raw, raw), extra
 
     async def _send_airings_image(self, event: AstrMessageEvent, title: str, rows) -> Any:
-        path = self.data_dir / "push_tables" / f"{title}.png"
+        from uuid import uuid4
+
+        path = self.data_dir / "push_tables" / f"{uuid4().hex}.png"
         try:
-            render_airings_image(title, rows, path)
+            await asyncio.to_thread(render_airings_image, title, rows, path)
         except Exception as exc:
             logger.error(f"[anime] 图表生成失败: {exc}")
             return event.plain_result(f"图片表生成失败：{exc}")
@@ -184,15 +154,14 @@ class AnimePlugin(Star):
                 self.store.upsert_target(Target(target_id, display_name, getattr(event, "platform_name", ""), True, datetime.now().isoformat()))
                 target = self.store.state["targets"][target_id]
             configured = [sub for sub in self.store.get_subscriptions(target_id) if sub.enabled]
-            if not configured:
-                self.store.save()
-                yield event.plain_result("当前会话已登记。请先在 WebUI 选择要订阅的动画并保存，再执行 /anime sub 开启自动推送。")
-                return
             target["whitelisted"] = True
             target["subscribed"] = True
             target["enabled"] = True
             self.store.save()
-            yield event.plain_result(f"已开启自动推送并加入白名单，共订阅 {len(configured)} 部动画。关闭请用 /anime sub off。")
+            message = f"已开启自动推送并加入白名单，共订阅 {len(configured)} 部动画。"
+            if not configured:
+                message += "请在 WebUI 选择该群要提醒的作品和提前分钟数；选好之前不会发送提醒。"
+            yield event.plain_result(message + "关闭请用 /anime sub off 或 /anime 订阅 关闭。")
             return
 
         all_items = [item for item in self.store.get_items() if item.region in ("jp", "mixed")]

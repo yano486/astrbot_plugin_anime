@@ -9,8 +9,6 @@ from .models import AnimeItem, SourceRecord, utc_now_iso
 
 def normalize_title(value: str) -> str:
     value = unicodedata.normalize("NFKC", value or "").lower()
-    value = re.sub(r"第\s*\d+\s*(季|期|季度|クール)", "", value)
-    value = re.sub(r"season\s*\d+|\bpart\s*\d+\b", "", value)
     return re.sub(r"[^\w\u4e00-\u9fff]+", "", value)
 
 
@@ -28,7 +26,7 @@ def _region(records: list[SourceRecord]) -> str:
 def _status(schedules: list) -> str:
     if not schedules:
         return "time_unknown"
-    values = {(item.weekday, item.hour, item.minute) for item in schedules}
+    values = {((item.weekday - 1 + item.hour // 24) % 7 + 1, item.hour % 24, item.minute) for item in schedules}
     return "conflict" if len(values) > 1 else "ok"
 
 

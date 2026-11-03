@@ -46,7 +46,7 @@ def parse_bgmlist_payload(payload: dict[str, Any] | list[dict[str, Any]], source
             SourceRecord(
                 source="bgmlist",
                 title=str(item.get("title", "")),
-                title_cn=str((item.get("titleTranslate") or {}).get("zh-Hans", [""])[0]),
+                title_cn=str(((item.get("titleTranslate") or {}).get("zh-Hans") or [""])[0]),
                 bangumi_id=bangumi_id,
                 aliases=list((item.get("titleTranslate") or {}).get("zh-Hans", [])),
                 item_type=str(item.get("type", "unknown")),
@@ -81,8 +81,8 @@ class BgmlistAdapter(SourceAdapter):
                         continue
                     if response.status != 200:
                         return SourceResult(self.name, status="error", error=f"HTTP {response.status}", source_url=url)
-                    records.extend(parse_bgmlist_payload(await response.json(), url, season))
+                    records.extend(parse_bgmlist_payload(await response.json(content_type=None), url, season))
             return SourceResult(self.name, records, ",".join(urls), "ok" if records else "error", "" if records else "no quarter data")
         except Exception as exc:
-            return SourceResult(self.name, status="error", error=str(exc), source_url=",".join(urls))
+            return SourceResult(self.name, status="error", error=f"{type(exc).__name__}: {exc}", source_url=",".join(urls))
 

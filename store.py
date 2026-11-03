@@ -24,10 +24,10 @@ class JsonStore:
     def load(self) -> dict[str, Any]:
         if not self.path.exists():
             return self.state
-        try:
-            self.state.update(json.loads(self.path.read_text(encoding="utf-8")))
-        except (OSError, ValueError):
-            self.state = dict(self.state)
+        loaded = json.loads(self.path.read_text(encoding="utf-8"))
+        if not isinstance(loaded, dict):
+            raise ValueError("anime_state.json must contain an object; existing file was not modified")
+        self.state.update(loaded)
         return self.state
 
     def save(self, state: dict[str, Any] | None = None) -> None:

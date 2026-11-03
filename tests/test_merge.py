@@ -39,6 +39,18 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(items[0].data_status, "conflict")
         self.assertEqual(len(items[0].schedules), 2)
 
+    def test_extended_clock_and_next_day_clock_are_not_a_conflict(self):
+        first = SourceRecord(source="yuc", title="Test", bangumi_id=3,
+                             schedules=[Schedule(1, 25, 30, "25:30", "yuc")])
+        second = SourceRecord(source="youranimes", title="Test", bangumi_id=3,
+                              schedules=[Schedule(2, 1, 30, "01:30", "youranimes")])
+        self.assertEqual(merge_records([first, second])[0].data_status, "ok")
+
+    def test_season_numbers_are_not_discarded_for_idless_titles(self):
+        first = SourceRecord(source="yuc", title="Test Season 1")
+        second = SourceRecord(source="yuc", title="Test Season 2")
+        self.assertEqual(len(merge_records([first, second])), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

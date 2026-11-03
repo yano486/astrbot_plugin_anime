@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import unittest
 
+from support import install_astrbot_stubs
+
+install_astrbot_stubs()
+
 from astrbot_plugin_anime.main import AnimePlugin
 
 

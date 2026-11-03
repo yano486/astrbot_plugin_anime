@@ -17,6 +17,11 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 class SourceParserTests(unittest.TestCase):
+    def test_empty_translation_list_does_not_crash(self):
+        records = parse_bgmlist_payload({"items": [{"title": "Test", "titleTranslate": {"zh-Hans": []},
+            "sites": [{"site": "bangumi", "id": "1"}]}]})
+        self.assertEqual(records[0].title_cn, "")
+
     def test_bangumi_maps_region_type_and_ids(self) -> None:
         payload = json.loads((FIXTURES / "bangumi.json").read_text(encoding="utf-8"))
         records = parse_bangumi_payload(payload)

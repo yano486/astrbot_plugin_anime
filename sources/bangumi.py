@@ -95,7 +95,7 @@ class BangumiAdapter(SourceAdapter):
                     break
             return SourceResult(self.name, records, self.base_url)
         except Exception as exc:
-            return SourceResult(self.name, status="error", error=str(exc), source_url=self.base_url)
+            return SourceResult(self.name, status="error", error=f"{type(exc).__name__}: {exc}", source_url=self.base_url)
 
     async def fetch(self, season: str) -> SourceResult:
         year, month = season_year_month(season)
@@ -106,7 +106,7 @@ class BangumiAdapter(SourceAdapter):
             current_year, zero_month = divmod(month_index, 12)
             current_month = zero_month + 1
             result = await self.fetch_month(current_year, current_month, season)
-            statuses[f"{current_year}-{current_month:02d}"] = result.status
+            statuses[f"{current_year}-{current_month:02d}"] = result.error if result.status == "error" else result.status
             if result.status == "ok":
                 records.extend(result.records)
         if not records and any(value == "error" for value in statuses.values()):

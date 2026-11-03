@@ -1,6 +1,6 @@
 const bridge = window.AstrBotPluginView;
 const $ = (selector) => document.querySelector(selector);
-const state = { items: [], targets: [], subscriptions: new Map(), sources: {} };
+const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", sources: {} };
 
 function currentSeason() {
   const now = new Date();
@@ -32,7 +32,7 @@ function firstTime(item) {
   const dayShift = Math.floor(totalBeijingMinutes / (24 * 60));
   const bjHour = Math.floor(normalized / 60);
   const bjMinute = normalized % 60;
-  const day = ((s.weekday - 1 + dayShift) % 7) + 1;
+  const day = (((s.weekday - 1 + dayShift) % 7) + 7) % 7 + 1;
   const japanClock = String(s.raw_time || `${s.hour}:${String(s.minute).padStart(2,"0")}`).replace(/~/g, "").trim();
   return `日本 周${"一二三四五六日"[s.weekday - 1]} ${japanClock} → 北京 周${"一二三四五六日"[day - 1]} ${String(bjHour).padStart(2,"0")}:${String(bjMinute).padStart(2,"0")}`;
 }
@@ -104,8 +104,9 @@ async function loadStatus() {
 
 async function loadTargets() {
   const data = await bridge.apiGet("targets"); state.targets = data.targets || [];
-  const select = $("#target"); select.innerHTML = '<option value="">选择已绑定的群或会话</option>';
+  const select = $("#target"); const selectedTarget = select.value; select.innerHTML = '<option value="">选择已绑定的群或会话</option>';
   state.targets.filter(target => target.enabled).forEach(target => { const option = document.createElement("option"); option.value = target.target_id; option.textContent = target.display_name || target.target_id; select.append(option); });
+  if (state.targets.some(target => target.enabled && target.target_id === selectedTarget)) select.value = selectedTarget;
   const list = $("#whitelist-list"); list.replaceChildren();
   state.targets.filter(target => target.enabled).forEach(target => {
     const label = document.createElement("label"); label.className = "whitelist-target";
@@ -117,12 +118,15 @@ async function loadTargets() {
 async function loadSubscriptions() {
   const targetId = $("#target").value; if (!targetId) { $("#save-status").textContent = "请先选择推送目标"; return; }
   const data = await bridge.apiGet("subscriptions", { target_id: targetId });
+  if ($("#target").value !== targetId) return;
+  state.subscriptionsTarget = targetId;
   state.subscriptions = new Map((data.subscriptions || []).map(sub => [sub.anime_key, sub])); render();
   $("#save-status").textContent = "已读取该目标订阅";
 }
 
 async function saveSubscriptions() {
   const targetId = $("#target").value; if (!targetId) { $("#save-status").textContent = "请先选择推送目标"; return; }
+  if (state.subscriptionsTarget !== targetId) { $("#save-status").textContent = "请先读取当前目标订阅，避免覆盖其他群聊"; return; }
   const subscriptions = [...state.subscriptions.entries()].filter(([,sub]) => sub.enabled).map(([anime_key,sub]) => ({anime_key, enabled: true, lead_minutes: Number(sub.lead_minutes) || 0, on_time: Boolean(sub.on_time)}));
   const result = await bridge.apiPost("subscriptions", {target_id: targetId, subscriptions});
   await loadTargets();

@@ -1,25 +1,72 @@
 const bridge = window.AstrBotPluginView;
 const $ = (selector) => document.querySelector(selector);
-const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", sources: {}, movieSources: {}, preferences: { schedule_source: "earliest", display_timezone: "Asia/Shanghai" } };
+const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", sources: {}, movieSources: {}, preferences: { schedule_source: "earliest", display_timezone: "Asia/Shanghai" }, periodMode: "", periodSelections: { season: "", year: "" } };
 
-function currentSeason() {
-  const now = new Date();
+function currentSeason(now = new Date()) {
   const month = Math.floor((now.getMonth()) / 3) * 3 + 1;
   return `${now.getFullYear()}-${String(month).padStart(2, "0")}`;
 }
 
-function seasonOptions() {
-  const select = $("#season");
-  const current = currentSeason();
-  const [year, month] = current.split("-").map(Number);
-  const months = [1, 4, 7, 10];
-  const index = months.indexOf(month);
-  const prev = index === 0 ? `${year - 1}-10` : `${year}-${String(months[index - 1]).padStart(2, "0")}`;
-  const next = index === 3 ? `${year + 1}-01` : `${year}-${String(months[index + 1]).padStart(2, "0")}`;
-  [[prev, "上一季度"], [current, "本季度"], [next, "下一季度"]].forEach(([value, label]) => {
-    const option = document.createElement("option"); option.value = value; option.textContent = `${label} · ${value}`; select.append(option);
+function seasonPeriodOptions(now = new Date()) {
+  const [year, month] = currentSeason(now).split("-").map(Number);
+  const index = [1, 4, 7, 10].indexOf(month);
+  return [-1, 0, 1].map(offset => {
+    const absolute = year * 4 + index + offset;
+    const optionYear = Math.floor(absolute / 4);
+    const optionMonth = [1, 4, 7, 10][((absolute % 4) + 4) % 4];
+    const value = `${optionYear}-${String(optionMonth).padStart(2, "0")}`;
+    return { value, label: value };
   });
-  select.value = current;
+}
+
+function catalogPeriodMode(type) {
+  return type === "tv" || type === "web" ? "season" : "year";
+}
+
+function periodOptions(type, items = state.items, now = new Date()) {
+  if (catalogPeriodMode(type) === "season") return seasonPeriodOptions(now);
+  const years = new Set();
+  for (const item of items || []) {
+    if (type && item.item_type !== type) continue;
+    const rawYear = isMovie(item) ? item.release_date?.slice(0, 4) : item.season?.slice(0, 4);
+    if (/^\d{4}$/.test(rawYear || "")) years.add(rawYear);
+  }
+  years.add(String(now.getFullYear()));
+  if (now.getMonth() === 11) years.add(String(now.getFullYear() + 1));
+  return [...years].sort().map(year => ({ value: year, label: `${year} 年` }));
+}
+
+function matchesCatalogPeriod(item, type, period) {
+  if (!period) return true;
+  if (catalogPeriodMode(type) === "season") return !isMovie(item) && item.season === period;
+  const year = isMovie(item) ? item.release_date?.slice(0, 4) : item.season?.slice(0, 4);
+  return year === period;
+}
+
+function configurePeriodControl() {
+  const select = $("#period");
+  if (!select) return;
+  if (state.periodMode && select.value) state.periodSelections[state.periodMode] = select.value;
+  const type = $("#type").value;
+  const mode = catalogPeriodMode(type);
+  const options = periodOptions(type);
+  const defaultValue = mode === "season" ? currentSeason() : String(new Date().getFullYear());
+  const remembered = state.periodSelections[mode];
+  const value = options.some(option => option.value === remembered) ? remembered
+    : options.some(option => option.value === defaultValue) ? defaultValue
+      : (options[options.length - 1]?.value || "");
+  select.replaceChildren();
+  options.forEach(valueOption => {
+    const option = document.createElement("option");
+    option.value = valueOption.value;
+    option.textContent = valueOption.label;
+    select.append(option);
+  });
+  select.value = value;
+  state.periodMode = mode;
+  state.periodSelections[mode] = value;
+  $("#period-label").textContent = mode === "season" ? "季度" : "上映年份";
+  window.AnimeControls?.refresh(select);
 }
 
 function safe(value = "") { return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
@@ -36,20 +83,6 @@ function isMovie(item) { return ["movie", "ova"].includes(item.item_type); }
 function movieReleaseValue(item) {
   const value = item.release_at || item.release_date || "";
   return /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : "";
-}
-
-function movieYears() {
-  const years = new Set(state.items.filter(isMovie).map(item => item.release_date?.slice(0, 4)).filter(year => /^\d{4}$/.test(year || "")));
-  const currentYear = new Date().getFullYear();
-  years.add(String(currentYear));
-  if (new Date().getMonth() === 11) years.add(String(currentYear + 1));
-  const select = $("#movie-year");
-  const old = select.value || String(currentYear);
-  select.innerHTML = '<option value="all">全部年份</option>';
-  [...years].sort().forEach(year => {
-    const option = document.createElement("option"); option.value = year; option.textContent = `${year} 年上映`; select.append(option);
-  });
-  select.value = years.has(old) ? old : String(currentYear);
 }
 
 function firstTime(item, timezone = state.preferences.display_timezone) {
@@ -79,6 +112,7 @@ function sourceChoices() {
     const option = document.createElement("option"); option.value = source; option.textContent = source; select.append(option);
   });
   select.value = old;
+  window.AnimeControls?.refresh(select);
 }
 
 function renderSources() {
@@ -95,7 +129,7 @@ function renderSources() {
 
 function render() {
   const q = $("#query").value.trim().toLowerCase();
-  const region = $("#region").value, type = $("#type").value, weekday = Number($("#weekday").value), role = $("#role").value, source = $("#source").value, movieYear = $("#movie-year").value;
+  const region = $("#region").value, type = $("#type").value, weekday = Number($("#weekday").value), role = $("#role").value, source = $("#source").value, period = $("#period").value;
   const items = state.items.filter(item => {
     const movie = isMovie(item);
     if (region === "jp" && item.region !== "jp") return false;
@@ -104,7 +138,7 @@ function render() {
     if (type && item.item_type !== type) return false;
     if (weekday && !movie && !(item.schedules || []).some(s => s.weekday === weekday)) return false;
     if (role && !movie && item.season_role !== role) return false;
-    if (movieYear !== "all" && movie && item.release_date?.slice(0, 4) !== movieYear) return false;
+    if (!matchesCatalogPeriod(item, type, period)) return false;
     if (source && !(item.sources || []).includes(source)) return false;
     if (q && !`${item.title} ${item.title_cn} ${(item.aliases || []).join(" ")} ${(item.genres || []).join(" ")}`.toLowerCase().includes(q)) return false;
     return true;
@@ -123,7 +157,7 @@ function render() {
     const role = item.season_role === "new" ? '<i class="badge badge-new">新作</i>' : item.season_role === "continuing" ? '<i class="badge badge-cont">续播</i>' : "";
     const note = item.schedule_note ? `<div class="meta warning">${safe(item.schedule_note)}</div>` : item.data_status === "time_unknown" && !movie ? '<div class="meta warning">暂无可靠播出时间，暂不发送时间提醒</div>' : "";
     const timing = movie
-      ? `<div class="movie-release"><label>上映日期</label><input class="release-at" type="date" value="${safe(movieReleaseValue(item).slice(0,10))}"><small>OVA 与剧场版仅按日期触发提醒，不使用 TV 的提前分钟设置。</small><div class="release-actions"><button class="button button-quiet save-release" type="button">保存上映日期</button><button class="button button-quiet reset-release" type="button">恢复来源日期</button></div></div>`
+      ? `<div class="movie-release"><label>上映日期</label><div class="date-field"><input class="release-at" type="hidden" value="${safe(movieReleaseValue(item))}"></div><small>OVA 与剧场版仅按日期触发提醒，不使用 TV 的提前分钟设置。</small><div class="release-actions"><button class="button button-quiet save-release" type="button">保存上映日期</button><button class="button button-quiet reset-release" type="button">恢复来源日期</button></div></div>`
       : `<div class="reminder-controls"><label>提前</label><input class="lead" type="number" min="0" max="1440" step="5" value="${Number(selected.lead_minutes) || 0}"><span>分钟</span><label><input class="on-time" type="checkbox" ${selected.on_time ? "checked" : ""}> 准点提醒</label></div>`;
     const displayTime = movie ? `上映日期：${safe(item.release_date || "待确认")}` : safe(firstTime(item));
     card.innerHTML = `${cover}<div class="card-main"><div class="card-top">${role}<i class="badge badge-cont">${safe(item.item_type || "类型待确认")}</i><i class="badge">${safe(item.region === "jp" ? "日本" : item.region === "mixed" ? "地区混合" : "地区待确认")}</i></div><h3>${safe(item.title_cn || item.title)}</h3><div class="original">${safe(item.title)}</div><div class="air-time">${displayTime}</div><div class="meta">${safe((item.genres || []).slice(0,4).join(" · "))}</div><div class="meta">来源：${safe((item.sources || []).join("、") || "尚无排期来源")}</div>${note}${timing}</div><input class="card-check" type="checkbox" ${selected.enabled ? "checked" : ""} aria-label="订阅 ${safe(item.title_cn || item.title)}">`;
@@ -150,6 +184,7 @@ function render() {
     });
     catalog.append(card);
   });
+  window.AnimeControls?.enhanceAll(catalog);
 }
 
 function showView(view) {
@@ -165,6 +200,7 @@ async function saveMovieRelease(item, card) {
   try {
     const result = await bridge.apiPost("movie-release", {anime_key: item.key, release_at: input.value});
     item.release_at = result.release_at;
+    window.AnimeControls?.refreshDate(input);
     card.querySelector(".save-release").textContent = "已保存";
   } catch (error) {
     card.querySelector(".save-release").textContent = `保存失败：${error.message}`;
@@ -175,17 +211,30 @@ async function resetMovieRelease(item, card) {
   try {
     await bridge.apiPost("movie-release", {anime_key: item.key, release_at: ""});
     item.release_at = "";
-    card.querySelector(".release-at").value = movieReleaseValue(item);
+    const input = card.querySelector(".release-at");
+    input.value = movieReleaseValue(item);
+    window.AnimeControls?.refreshDate(input);
     card.querySelector(".reset-release").textContent = "已恢复";
   } catch (error) {
     card.querySelector(".reset-release").textContent = `恢复失败：${error.message}`;
   }
 }
 
-async function loadItems() {
-  $("#refresh-status").textContent = "正在读取作品目录…";
-  const result = await bridge.apiGet("items", { season: $("#season").value });
-  state.items = result.items || []; movieYears(); sourceChoices(); render();
+async function loadItems(refreshYear = false) {
+  const requestedMode = state.periodMode;
+  const requestedPeriod = $("#period").value;
+  $("#refresh-status").textContent = requestedMode === "year" && refreshYear ? `正在读取 ${requestedPeriod} 年多个季度…` : "正在读取作品目录…";
+  if (requestedMode === "year" && refreshYear) {
+    await bridge.apiPost("refresh", {season: requestedPeriod});
+    if (requestedMode !== state.periodMode || requestedPeriod !== $("#period").value) return;
+    await loadStatus();
+  }
+  const season = requestedMode === "season" ? requestedPeriod : "all";
+  const result = await bridge.apiGet("items", { season });
+  if (requestedMode !== state.periodMode || requestedPeriod !== $("#period").value) return;
+  state.items = result.items || [];
+  configurePeriodControl();
+  sourceChoices(); render();
   const itemSelect = $("#test-item");
   if (itemSelect) {
     const oldItem = itemSelect.value;
@@ -194,6 +243,7 @@ async function loadItems() {
       const option = document.createElement("option"); option.value = item.key; option.textContent = item.title_cn || item.title; itemSelect.append(option);
     });
     if (state.items.some(item => item.key === oldItem)) itemSelect.value = oldItem;
+    window.AnimeControls?.refresh(itemSelect);
   }
   $("#refresh-status").textContent = `已载入 ${result.count || 0} 部 · ${result.updated_at || "尚未刷新"}`;
 }
@@ -220,12 +270,15 @@ async function loadTargets() {
   testSelect.innerHTML = '<option value="">选择推送目标</option>';
   state.targets.filter(target => target.enabled).forEach(target => { const option = document.createElement("option"); option.value = target.target_id; option.textContent = target.display_name || target.target_id; testSelect.append(option); });
   if (state.targets.some(target => target.enabled && target.target_id === oldTestTarget)) testSelect.value = oldTestTarget;
+  window.AnimeControls?.refresh(select);
+  window.AnimeControls?.refresh(testSelect);
   const itemSelect = $("#test-item"); const oldItem = itemSelect.value;
   itemSelect.innerHTML = '<option value="">选择动画</option>';
   state.items.filter(item => item.item_type === "tv" || item.item_type === "web").forEach(item => {
     const option = document.createElement("option"); option.value = item.key; option.textContent = item.title_cn || item.title; itemSelect.append(option);
   });
   if (state.items.some(item => item.key === oldItem)) itemSelect.value = oldItem;
+  window.AnimeControls?.refresh(itemSelect);
   const list = $("#whitelist-list"); list.replaceChildren();
   state.targets.filter(target => target.enabled).forEach(target => {
     const label = document.createElement("label"); label.className = "whitelist-target";
@@ -307,6 +360,8 @@ async function addUmoTarget() {
 function applyPreferences() {
   $("#schedule-source").value = state.preferences.schedule_source;
   $("#display-timezone").value = state.preferences.display_timezone;
+  window.AnimeControls?.refresh($("#schedule-source"));
+  window.AnimeControls?.refresh($("#display-timezone"));
   render();
 }
 
@@ -337,17 +392,28 @@ async function logout() {
 
 async function refreshAll() {
   $("#refresh").disabled = true; $("#refresh-status").textContent = "正在刷新多个来源…";
-  try { await bridge.apiPost("refresh", {season: $("#season").value}); await loadStatus(); await loadItems(); $("#save-status").textContent = "刷新完成"; }
+  try {
+    await bridge.apiPost("refresh", {season: $("#period").value});
+    await loadStatus();
+    await loadItems();
+    $("#save-status").textContent = "刷新完成";
+  }
   catch (error) { $("#refresh-status").textContent = `刷新失败：${error.message}`; }
   finally { $("#refresh").disabled = false; }
 }
 
 async function init() {
   try {
-    await bridge.ready(); seasonOptions();
+    await bridge.ready();
+    configurePeriodControl();
+    window.AnimeControls?.enhanceAll();
     setTheme(window.localStorage.getItem("anime-management-theme") === "dark" ? "dark" : "light");
-    for (const id of ["query", "region", "type", "weekday", "role", "movie-year", "source"]) $("#" + id).addEventListener(id === "query" ? "input" : "change", render);
-    $("#season").addEventListener("change", loadItems);
+    for (const id of ["query", "region", "weekday", "role", "source"]) $("#" + id).addEventListener(id === "query" ? "input" : "change", render);
+    $("#type").addEventListener("change", () => { configurePeriodControl(); loadItems(state.periodMode === "year"); });
+    $("#period").addEventListener("change", () => {
+      state.periodSelections[state.periodMode] = $("#period").value;
+      loadItems(state.periodMode === "year");
+    });
     $("#refresh").addEventListener("click", refreshAll);
     $("#load-subs").addEventListener("click", loadSubscriptions);
     $("#save-subs").addEventListener("click", saveSubscriptions);
@@ -361,7 +427,7 @@ async function init() {
     $("#logout").addEventListener("click", logout);
     $("#show-catalog").addEventListener("click", () => showView("catalog"));
     $("#show-settings").addEventListener("click", () => showView("settings"));
-    await Promise.all([loadStatus(), loadTargets(), loadItems()]);
+    await Promise.all([loadStatus(), loadTargets(), loadItems(state.periodMode === "year")]);
   } catch (error) { $("#catalog").innerHTML = `<div class="error">管理页面载入失败：${safe(error.message)}</div>`; }
 }
 

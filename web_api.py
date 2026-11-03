@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import Any
 
 from .models import Subscription
+from .time_utils import BJ
 
 SCHEDULE_SOURCES = {"earliest", "yuc", "bgmlist", "bangumi"}
 DISPLAY_TIMEZONES = {"Asia/Shanghai", "Asia/Tokyo"}
@@ -182,7 +183,7 @@ class AnimeWebAPI:
                 items = []
                 movie_keys = {item.key for item in self.plugin.store.get_movie_items()}
                 for item in self.plugin.store.get_all_items():
-                    if item.key not in movie_keys and season and item.season and item.season != season:
+                    if item.key not in movie_keys and season and season != "all" and item.season and item.season != season:
                         continue
                     if query_text and query_text not in (item.title + " " + item.title_cn + " " + " ".join(item.aliases)).casefold():
                         continue
@@ -301,14 +302,27 @@ class AnimeWebAPI:
                 import re
 
                 season = (payload or {}).get("season") or self.plugin.current_season()
-                if not isinstance(season, str) or not re.fullmatch(r"\d{4}-(01|04|07|10)", season):
-                    return 400, {"error": "season must be YYYY-01, YYYY-04, YYYY-07, or YYYY-10"}
-                result = await self.plugin.refresh_service.refresh(season)
-                movie_result = await self.plugin.refresh_service.refresh_movies(datetime.now(BJ).date())
+                if not isinstance(season, str) or not re.fullmatch(r"\d{4}(?:-(01|04|07|10))?", season):
+                    return 400, {"error": "season must be YYYY or YYYY-01, YYYY-04, YYYY-07, or YYYY-10"}
+                seasons = [f"{season}-{month:02d}" for month in (1, 4, 7, 10)] if re.fullmatch(r"\d{4}", season) else [season]
+                results = [await self.plugin.refresh_service.refresh(value) for value in seasons]
+                movie_result = await self.plugin.refresh_service.refresh_movies(datetime.now(BJ).date()) if hasattr(self.plugin.refresh_service, "refresh_movies") else {"items": [], "sources": {}}
+                anime_items = {item.key: item for result in results for item in result["items"]}
+                source_status = results[-1]["sources"]
+                if len(results) > 1:
+                    source_status = {
+                        name: {
+                            **value,
+                            "count": sum(result["sources"].get(name, {}).get("count", 0) for result in results),
+                            "season_status": {period: result["sources"].get(name, {}).get("status", "error") for period, result in zip(seasons, results)},
+                        }
+                        for name, value in results[-1]["sources"].items()
+                    }
                 return 200, {
-                    "count": len(result["items"]),
+                    "count": len(anime_items),
+                    "seasons": seasons,
                     "movie_count": len(movie_result["items"]),
-                    "sources": result["sources"],
+                    "sources": source_status,
                     "movie_sources": {name: {"status": value.status, "error": value.error, "source_url": value.source_url} for name, value in movie_result["sources"].items()},
                 }
             return 404, {"error": "not found"}

@@ -10,6 +10,51 @@ from astrbot_plugin_anime.web_api import AnimeWebAPI
 
 
 class WebApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_all_period_returns_cached_anime_across_seasons(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = JsonStore(Path(directory) / "state.json")
+            store.set_items([
+                AnimeItem("tv:summer", "Summer", season="2026-07", item_type="tv", region="jp"),
+                AnimeItem("tv:fall", "Fall", season="2026-10", item_type="tv", region="jp"),
+            ])
+            store.set_movie_items([AnimeItem("movie:1", "Movie", item_type="movie", release_date="2026-12-01")])
+
+            class Plugin:
+                def __init__(self): self.store = store
+                @staticmethod
+                def current_season(): return "2026-10"
+
+            status, body = await AnimeWebAPI(Plugin()).execute("items", "GET", {"season": "all"})
+
+            self.assertEqual(status, 200, body)
+            self.assertEqual({item["key"] for item in body["items"]}, {"tv:summer", "tv:fall", "movie:1"})
+
+    async def test_year_refresh_fetches_all_four_seasons(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = JsonStore(Path(directory) / "state.json")
+
+            class RefreshService:
+                def __init__(self): self.seasons = []
+                async def refresh(self, season):
+                    self.seasons.append(season)
+                    return {"items": [], "sources": {}}
+                async def refresh_movies(self, today):
+                    return {"items": [], "sources": {}}
+
+            class Plugin:
+                def __init__(self):
+                    self.store = store
+                    self.refresh_service = RefreshService()
+                @staticmethod
+                def current_season(): return "2026-10"
+
+            plugin = Plugin()
+            status, body = await AnimeWebAPI(plugin).execute("refresh", "POST", {}, {"season": "2026"})
+
+            self.assertEqual(status, 200, body)
+            self.assertEqual(plugin.refresh_service.seasons, ["2026-01", "2026-04", "2026-07", "2026-10"])
+            self.assertEqual(body["count"], 0)
+
     async def test_movie_catalog_selection_release_time_and_test_push_share_target_state(self):
         with tempfile.TemporaryDirectory() as directory:
             store = JsonStore(Path(directory) / "state.json")

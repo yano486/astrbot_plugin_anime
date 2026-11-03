@@ -15,15 +15,14 @@
         <p class="lede">筛选作品，勾选订阅；提醒时间按北京时间计算。</p>
       </div>
       <div class="mast-actions">
-        <select id="season" aria-label="选择季度"></select>
         <button class="button button-dark" id="refresh">刷新番表</button>
         <button class="button button-quiet" id="toggle-theme" type="button" aria-pressed="false">切换暗色</button>
       </div>
     </header>
 
     <nav class="view-tabs" aria-label="管理页面导航">
-      <button class="view-tab active" id="show-catalog" type="button">季度片单</button>
-      <button class="view-tab" id="show-settings" type="button">设置与推送测试</button>
+      <button class="view-tab active" id="show-catalog" type="button">动画订阅</button>
+      <button class="view-tab" id="show-settings" type="button">设置</button>
       <span>推荐使用 WebUI 管理订阅与提醒</span>
     </nav>
 
@@ -35,57 +34,58 @@
 
     <section class="toolbar">
       <label class="search"><span>⌕</span><input id="query" type="search" placeholder="搜索标题、别名或题材"></label>
-      <label class="filter-control"><span>地区</span><select id="region"><option value="jp" selected>日本动画</option><option value="">所有地区</option><option value="mixed">多地区/合拍</option><option value="unknown">待确认</option></select></label>
-      <label class="filter-control"><span>类型</span><select id="type"><option value="">所有类型</option><option value="tv">TV</option><option value="web">WEB</option><option value="ova">OVA</option><option value="movie">剧场版</option></select></label>
-      <label class="filter-control"><span>星期</span><select id="weekday"><option value="">所有星期</option><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option></select></label>
-      <label class="filter-control"><span>季度属性</span><select id="role"><option value="">新作与续播</option><option value="new">新作</option><option value="continuing">跨季续播</option></select></label>
-      <label class="filter-control"><span>上映年份</span><select id="movie-year"><option value="all">全部年份</option></select></label>
-      <label class="filter-control"><span>来源</span><select id="source"><option value="">所有来源</option></select></label>
+      <div class="filter-control"><span id="region-label" class="filter-label">地区</span><select id="region" aria-label="地区"><option value="jp" selected>日本动画</option><option value="">所有地区</option><option value="mixed">多地区/合拍</option><option value="unknown">待确认</option></select></div>
+      <div class="filter-control"><span id="type-label" class="filter-label">类型</span><select id="type" aria-label="类型"><option value="">所有类型</option><option value="tv">TV</option><option value="web">WEB</option><option value="ova">OVA</option><option value="movie">剧场版</option></select></div>
+      <div class="filter-control"><span id="weekday-label" class="filter-label">星期</span><select id="weekday" aria-label="星期"><option value="">所有星期</option><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option></select></div>
+      <div class="filter-control"><span id="role-label" class="filter-label">季度属性</span><select id="role" aria-label="季度属性"><option value="">新作与续播</option><option value="new">新作</option><option value="continuing">跨季续播</option></select></div>
+      <div class="filter-control"><span id="period-label" class="filter-label">上映年份</span><select id="period" aria-label="筛选季度或上映年份"></select></div>
+      <div class="filter-control"><span id="source-label" class="filter-label">来源</span><select id="source" aria-label="来源"><option value="">所有来源</option></select></div>
     </section>
 
     <section class="target-row">
       <label for="target">提醒发送到</label>
-      <select id="target"><option value="">选择已绑定的群或会话</option></select>
+      <select id="target" aria-label="提醒发送到"><option value="">选择已绑定的群或会话</option></select>
       <span>先在机器人会话中执行 <code>/anime绑定</code></span>
       <button class="button button-quiet" id="load-subs">读取订阅</button>
       <button class="button button-accent" id="save-subs">保存所选订阅</button>
     </section>
 
     <section class="catalog-head">
-      <div><span class="section-index">01</span><h2>季度片单</h2><span id="count" class="count"></span></div>
+      <div><h2>动画订阅列表</h2><span id="count" class="count"></span></div>
       <div class="legend"><span><i class="badge badge-new">新作</i></span><span><i class="badge badge-cont">续播</i></span><span class="muted">多个来源时间不同，按最早时间统一提醒</span></div>
     </section>
     <section id="catalog" class="catalog" aria-live="polite"></section>
     </section>
 
     <section id="settings-view" hidden>
-      <section class="settings-heading"><span class="section-index">02</span><div><h2>推送设置</h2><p>作品订阅会自动加入白名单；关闭白名单后，该会话不会收到自动提醒。</p></div></section>
+      <section class="settings-heading"><div><h2>推送设置</h2><p>作品订阅会自动加入白名单；关闭白名单后，该会话不会收到自动提醒。</p></div></section>
       <section class="whitelist-panel">
         <div class="whitelist-heading"><div><strong>推送白名单</strong><small>启用订阅后自动加入，也可在此手动管理。</small></div><button class="button button-quiet" id="save-whitelist">保存白名单</button></div>
         <div class="umo-add"><label for="umo-target">添加 /sid 获取到的 UMO</label><input id="umo-target" type="text" placeholder="default:FriendMessage:123456789" autocomplete="off"><button class="button button-quiet" id="add-umo" type="button">添加到白名单</button><small>格式：platform_name:message_type:session_id，例如 default:FriendMessage:123456789。</small></div>
         <div id="whitelist-list" class="whitelist-list"></div>
       </section>
       <section class="preference-panel">
-        <div><span class="section-index">03</span><h2>排期与时间</h2><p>时间提醒按实际播出时刻计算，OVA 和剧场版仍只按上映日期提醒。</p></div>
+        <div><h2>排期与时间</h2><p>时间提醒按实际播出时刻计算，OVA 和剧场版仍只按上映日期提醒。</p></div>
         <div class="preference-controls">
-          <label>排期来源<select id="schedule-source"><option value="earliest">同时获取，采用最早时间（推荐）</option><option value="yuc">YUC</option><option value="bgmlist">bgmlist</option><option value="bangumi">Bangumi（当前不提供具体播出时刻）</option></select></label>
-          <label>显示与推送时间<select id="display-timezone"><option value="Asia/Shanghai">北京时间</option><option value="Asia/Tokyo">日本时间</option></select></label>
+          <div class="preference-field"><span>排期来源</span><select id="schedule-source" aria-label="排期来源"><option value="earliest">同时获取，采用最早时间（推荐）</option><option value="yuc">YUC</option><option value="bgmlist">bgmlist</option><option value="bangumi">Bangumi（当前不提供具体播出时刻）</option></select></div>
+          <div class="preference-field"><span>显示与推送时间</span><select id="display-timezone" aria-label="显示与推送时间"><option value="Asia/Shanghai">北京时间</option><option value="Asia/Tokyo">日本时间</option></select></div>
           <button class="button button-accent" id="save-preferences" type="button">保存设置</button>
         </div>
         <small>默认提前 15 分钟提醒 TV / 有时间排期的 WEB 动画。日本 23:00 与北京时间 22:00 是同一时刻；切换只改变显示时区，不改变提醒触发时刻。</small>
       </section>
       <section class="test-push-panel">
-        <div class="test-push-heading"><span class="section-index">04</span><div><h2>推送测试</h2><p>先选择目标；可测试文字消息、开播提醒图片卡片或单部动画更新卡片。</p></div></div>
+        <div class="test-push-heading"><div><h2>推送测试</h2><p>先选择目标；可测试文字消息、开播提醒图片卡片或单部动画更新卡片。</p></div></div>
         <div class="test-push-targets"><select id="test-target" aria-label="选择测试推送目标"><option value="">选择推送目标</option></select><select id="test-item" aria-label="选择动画更新卡片作品"><option value="">选择动画</option></select></div>
         <div class="test-push-actions"><button class="button button-quiet" id="test-push">消息测试</button><button class="button button-accent" id="test-reminder-card">开播提醒卡片</button><button class="button button-quiet" id="test-update-card">动画更新卡片</button></div>
         <div id="test-push-status" role="status"></div>
       </section>
-      <section class="remote-info"><span class="section-index">05</span><div><strong>WebUI 访问</strong><p id="remote-webui-status">远程 WebUI 地址读取中…</p><small>监听地址、端口和登录密码可在 AstrBot 插件配置中修改；AstrBot 内嵌管理页仍可使用。请勿将 HTTP 服务暴露到公网。</small></div><button class="button button-quiet" id="logout" type="button" hidden>退出登录</button></section>
+      <section class="remote-info"><div><strong>WebUI 访问</strong><p id="remote-webui-status">远程 WebUI 地址读取中…</p><small>监听地址、端口和登录密码可在 AstrBot 插件配置中修改；AstrBot 内嵌管理页仍可使用。请勿将 HTTP 服务暴露到公网。</small></div><button class="button button-quiet" id="logout" type="button" hidden>退出登录</button></section>
     </section>
 
     <footer><span>排期仅代表来源记录，不等于视频实际上线。</span><span id="save-status"></span></footer>
   </main>
   <script src="./bridge.js"></script>
+  <script src="./controls.js"></script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

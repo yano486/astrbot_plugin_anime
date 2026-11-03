@@ -43,8 +43,13 @@ class RemoteWebServerTests(IsolatedAsyncioTestCase):
         try:
             page = await client.get("/")
             self.assertEqual(page.status, 200)
-            self.assertIn("动画订阅", await page.text())
+            page_text = await page.text()
+            self.assertIn("动画订阅", page_text)
+            self.assertIn("controls.js", page_text)
             self.assertNotIn("login-panel", await page.text())
+            controls = await client.get("/controls.js")
+            self.assertEqual(controls.status, 200)
+            self.assertIn("application/javascript", controls.headers["Content-Type"])
             response = await client.get("/api/status")
             self.assertEqual(response.status, 200)
 

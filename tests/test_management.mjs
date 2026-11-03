@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('../views/management/app.js', import.meta.url), 'utf8');
 const markup = readFileSync(new URL('../views/management/index.html', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../views/management/style.css', import.meta.url), 'utf8');
+const controlsUrl = new URL('../views/management/controls.js', import.meta.url);
+const controls = existsSync(controlsUrl) ? readFileSync(controlsUrl, 'utf8') : '';
 
 class Element {
   value = '';
@@ -80,18 +82,63 @@ test('Japan display preference keeps the Japanese weekday and clock', () => {
   assert.match(text, /日本 周一 23:00/);
 });
 
-test('movie year filter omits invalid dates such as the string None', () => {
+test('year options omit invalid dates and include every catalog year', () => {
   const app = setup(async () => ({}));
-  app.run('state.items = [{item_type:"movie", release_date:"None"}, {item_type:"ova", release_date:"2027-04-10"}]');
-  app.run('movieYears()');
-  const options = app.element('#movie-year').children;
-  assert.equal(options.some(option => option.value === 'None'), false);
-  assert.equal(options.some(option => option.value === '2027'), true);
+  const values = app.run('periodOptions("", [{item_type:"tv",season:"2025-10"},{item_type:"movie",release_date:"2027-04-10"},{item_type:"ova",release_date:"None"}], new Date(2026,10,4)).map(option => option.value).join(",")');
+  assert.equal(values, '2025,2026,2027');
 });
 
-test('touch filters keep a visible field label outside the native select value', () => {
-  assert.match(markup, /class="filter-control"><span>地区<\/span><select id="region"/);
-  assert.match(markup, /class="filter-control"><span>星期<\/span><select id="weekday"/);
+test('TV and WEB filters use quarters while all types, OVA, and movies use years', () => {
+  const app = setup(async () => ({}));
+  assert.equal(app.run('catalogPeriodMode("tv")'), 'season');
+  assert.equal(app.run('catalogPeriodMode("web")'), 'season');
+  assert.equal(app.run('catalogPeriodMode("")'), 'year');
+  assert.equal(app.run('catalogPeriodMode("ova")'), 'year');
+  assert.equal(app.run('catalogPeriodMode("movie")'), 'year');
+});
+
+test('season choices show the previous, current, and next quarter without a duplicate masthead control', () => {
+  const app = setup(async () => ({}));
+  const values = app.run('seasonPeriodOptions(new Date(2026,10,4)).map(option => option.value).join(",")');
+  assert.equal(values, '2026-07,2026-10,2027-01');
+  assert.doesNotMatch(markup, /id="season"/);
+  assert.match(markup, /id="period"/);
+});
+
+test('all-types year filter matches TV seasons and movie release years', () => {
+  const app = setup(async () => ({}));
+  assert.equal(app.run('matchesCatalogPeriod({item_type:"tv",season:"2026-10"}, "", "2026")'), true);
+  assert.equal(app.run('matchesCatalogPeriod({item_type:"movie",release_date:"2026-12-01"}, "", "2026")'), true);
+  assert.equal(app.run('matchesCatalogPeriod({item_type:"web",season:"2025-10"}, "", "2026")'), false);
+});
+
+test('year catalog queries load all cached seasons for client-side year filtering', async () => {
+  const calls = [];
+  const app = setup(async (endpoint, params) => {
+    calls.push({ endpoint, params });
+    return { items: [], count: 0, updated_at: "" };
+  });
+  app.element('#type').value = '';
+  app.element('#period').value = '2026';
+  await app.run('configurePeriodControl(); loadItems(false)');
+  assert.equal(calls[0].params.season, 'all');
+});
+
+test('TV season catalog query requests only the selected quarter', async () => {
+  const calls = [];
+  const app = setup(async (endpoint, params) => {
+    calls.push({ endpoint, params });
+    return { items: [], count: 0, updated_at: "" };
+  });
+  app.element('#type').value = 'tv';
+  app.element('#period').value = '2026-07';
+  await app.run('configurePeriodControl(); document.querySelector("#period").value="2026-07"; loadItems(false)');
+  assert.equal(calls[0].params.season, '2026-07');
+});
+
+test('filters use explicit persistent labels separate from selected values', () => {
+  assert.match(markup, /id="region-label" class="filter-label">地区/);
+  assert.match(markup, /id="weekday-label" class="filter-label">星期/);
 });
 
 test('settings page exposes whitelist, test-push, and remote WebUI status', () => {
@@ -105,6 +152,24 @@ test('settings page exposes whitelist, test-push, and remote WebUI status', () =
   assert.match(markup, /id="test-reminder-card"/);
   assert.match(markup, /id="test-update-card"/);
   assert.match(markup, /id="toggle-theme"/);
+});
+
+test('catalog navigation and headings use subscription wording and settings owns push tests', () => {
+  assert.match(markup, /id="show-catalog"[^>]*>动画订阅</);
+  assert.match(markup, /id="show-settings"[^>]*>设置</);
+  assert.match(markup, /<h2>动画订阅列表<\/h2>/);
+  assert.doesNotMatch(markup, /季度片单|设置与推送测试/);
+  assert.doesNotMatch(markup, /class="section-index"/);
+});
+
+test('management UI loads custom controls and does not use native date inputs', () => {
+  assert.match(markup, /src="\.\/controls\.js"/);
+  assert.match(controls, /role", "listbox"|role="listbox"/);
+  assert.match(controls, /ArrowDown/);
+  assert.match(controls, /role", "dialog"|role="dialog"/);
+  assert.doesNotMatch(source, /type="date"/);
+  assert.match(styles, /\.select-popover/);
+  assert.match(styles, /\.date-popover/);
 });
 
 test('push test panel uses a full-width heading and separate responsive control rows', () => {

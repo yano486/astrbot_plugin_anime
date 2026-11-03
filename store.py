@@ -8,6 +8,12 @@ from typing import Any
 from .models import AnimeItem, Subscription, Target
 
 
+DEFAULT_PREFERENCES = {
+    "schedule_source": "earliest",
+    "display_timezone": "Asia/Shanghai",
+}
+
+
 class JsonStore:
     def __init__(self, path: Path):
         self.path = Path(path)
@@ -19,6 +25,7 @@ class JsonStore:
             "movie_release_overrides": {},
             "receipts": [],
             "source_status": {},
+            "preferences": dict(DEFAULT_PREFERENCES),
             "updated_at": "",
         }
         self.load()
@@ -67,6 +74,12 @@ class JsonStore:
 
     def get_movie_release_override(self, item_key: str) -> str:
         return str(self.state.get("movie_release_overrides", {}).get(item_key, ""))
+
+    def get_preferences(self) -> dict[str, str]:
+        return {**DEFAULT_PREFERENCES, **self.state.get("preferences", {})}
+
+    def set_preferences(self, values: dict[str, str]) -> None:
+        self.state["preferences"] = {**self.get_preferences(), **values}
 
     def get_targets(self) -> list[Target]:
         return [Target(**value) for value in self.state.get("targets", {}).values()]

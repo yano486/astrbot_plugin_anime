@@ -14,11 +14,14 @@ class StoreTests(unittest.TestCase):
             store = JsonStore(Path(directory) / "state.json")
             store.upsert_target(Target("group:1", "Group 1"))
             store.upsert_target(Target("group:2", "Group 2"))
+            store.set_preferences({"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo"})
             store.set_subscription(Subscription("group:1", "bangumi:1", lead_minutes=30))
             store.save()
 
             loaded = JsonStore(Path(directory) / "state.json")
             self.assertEqual([item.target_id for item in loaded.get_subscriptions("group:1")], ["group:1"])
+            self.assertEqual(loaded.get_preferences()["schedule_source"], "bgmlist")
+            self.assertEqual(loaded.get_preferences()["display_timezone"], "Asia/Tokyo")
             self.assertEqual(loaded.get_subscriptions("group:2"), [])
 
     def test_receipt_is_deduplicated(self) -> None:

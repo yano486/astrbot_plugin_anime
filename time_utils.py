@@ -64,6 +64,16 @@ def schedule_in_beijing(weekday: int, hour: int, minute: int) -> tuple[int, int,
     return bj_weekday, bj_hour, bj_minute
 
 
+def schedule_time_in_timezone(schedule, timezone_name: str) -> tuple[int, int, int]:
+    if timezone_name not in ("Asia/Shanghai", "Asia/Tokyo"):
+        raise ValueError("display timezone must be Asia/Shanghai or Asia/Tokyo")
+    offset_minutes = -60 if timezone_name == "Asia/Shanghai" else 0
+    total_minutes = schedule.hour * 60 + schedule.minute + offset_minutes
+    day_offset, clock_minutes = divmod(total_minutes, 24 * 60)
+    weekday = ((schedule.weekday - 1 + day_offset) % 7) + 1
+    return weekday, clock_minutes // 60, clock_minutes % 60
+
+
 def next_schedule_occurrence(now: datetime, schedule) -> datetime:
     if now.tzinfo is None:
         raise ValueError("now must be timezone-aware")

@@ -35,7 +35,7 @@ def _schedule_key(schedule) -> tuple[int, int]:
     return weekday, clock_minutes
 
 
-def unify_schedules(schedules: list) -> tuple[list, str]:
+def unify_schedules(schedules: list, schedule_source: str = "earliest") -> tuple[list, str]:
     unique = []
     seen = set()
     for schedule in schedules:
@@ -43,6 +43,18 @@ def unify_schedules(schedules: list) -> tuple[list, str]:
         if identity not in seen:
             unique.append(schedule)
             seen.add(identity)
+    if schedule_source != "earliest":
+        selected_source = [schedule for schedule in unique if schedule.source == schedule_source]
+        if not selected_source:
+            if unique:
+                note = (
+                    "Bangumi 当前数据不含具体播出时刻，已按设置暂停时间提醒"
+                    if schedule_source == "bangumi"
+                    else f"当前选择的排期来源 {schedule_source} 暂无播出时刻，已暂停时间提醒"
+                )
+                return [], note
+            return [], ""
+        unique = selected_source
     if not unique:
         return [], ""
     selected = min(unique, key=_schedule_key)
@@ -61,7 +73,7 @@ def unify_schedules(schedules: list) -> tuple[list, str]:
     return [selected], note
 
 
-def merge_records(records: list[SourceRecord]) -> list[AnimeItem]:
+def merge_records(records: list[SourceRecord], schedule_source: str = "earliest") -> list[AnimeItem]:
     groups: list[list[SourceRecord]] = []
     by_id: dict[int, list[SourceRecord]] = defaultdict(list)
     by_title: dict[str, list[SourceRecord]] = defaultdict(list)
@@ -123,7 +135,7 @@ def merge_records(records: list[SourceRecord]) -> list[AnimeItem]:
                 roles.add(record.season_role)
             if record.source_url:
                 source_urls[record.source] = record.source_url
-        unique_schedules, schedule_note = unify_schedules(schedules)
+        unique_schedules, schedule_note = unify_schedules(schedules, schedule_source)
         key = f"bangumi:{first.bangumi_id}" if first.bangumi_id is not None else f"title:{normalize_title(first.title)}"
         result.append(
             AnimeItem(

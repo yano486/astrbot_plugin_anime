@@ -100,7 +100,7 @@ class Subscription:
     target_id: str
     anime_key: str
     enabled: bool = True
-    lead_minutes: int = 0
+    lead_minutes: int = 15
     on_time: bool = True
 
 

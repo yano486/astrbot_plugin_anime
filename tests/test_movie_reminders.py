@@ -26,7 +26,7 @@ class Store:
 
 
 class MovieReminderTests(unittest.TestCase):
-    def test_movie_release_date_can_trigger_lead_reminder(self):
+    def test_movie_release_date_does_not_use_tv_advance_minutes(self):
         sent = []
 
         async def deliver(target, message):
@@ -35,11 +35,44 @@ class MovieReminderTests(unittest.TestCase):
 
         now = datetime(2026, 11, 3, 23, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
         count = asyncio.run(ReminderScheduler(Store(), deliver, interval=30).check_once(now))
+        self.assertEqual(count, 0)
+        self.assertEqual(sent, [])
+
+        count = asyncio.run(ReminderScheduler(Store(), deliver, interval=30).check_once(
+            datetime(2026, 11, 4, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+        ))
         self.assertEqual(count, 1)
         self.assertIn("电影", sent[0])
-        self.assertIn("来源只有日期", sent[0])
+        self.assertIn("上映日期：北京时间 2026-11-04", sent[0])
+        self.assertIn("仅按上映日期提醒", sent[0])
 
-    def test_movie_can_use_webui_release_datetime_override(self):
+        sent.clear()
+        count = asyncio.run(ReminderScheduler(Store(), deliver, interval=30).check_once(
+            datetime(2026, 11, 4, 12, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+        ))
+        self.assertEqual(count, 1)
+
+        sent.clear()
+        count = asyncio.run(ReminderScheduler(Store(), deliver, interval=30).check_once(
+            datetime(2026, 11, 5, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+        ))
+        self.assertEqual(count, 0)
+
+    def test_movie_can_use_webui_release_date_override(self):
+        store = Store()
+        store.release_override = "2026-11-04"
+        sent = []
+
+        async def deliver(target, message):
+            sent.append(message)
+            return True
+
+        now = datetime(2026, 11, 4, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+        count = asyncio.run(ReminderScheduler(store, deliver, interval=30).check_once(now))
+        self.assertEqual(count, 1)
+        self.assertIn("上映日期：北京时间 2026-11-04", sent[0])
+
+    def test_legacy_datetime_override_is_reduced_to_its_release_date(self):
         store = Store()
         store.release_override = "2026-11-04T08:00"
         sent = []
@@ -48,8 +81,21 @@ class MovieReminderTests(unittest.TestCase):
             sent.append(message)
             return True
 
-        now = datetime(2026, 11, 4, 7, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-        count = asyncio.run(ReminderScheduler(store, deliver, interval=30).check_once(now))
+        now = datetime(2026, 11, 4, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+        count = asyncio.run(ReminderScheduler(store, deliver).check_once(now))
         self.assertEqual(count, 1)
-        self.assertIn("08:00", sent[0])
-        self.assertNotIn("来源只有日期", sent[0])
+        self.assertIn("2026-11-04", sent[0])
+
+    def test_movie_date_reminder_uses_the_selected_timezone_day(self):
+        store = Store()
+        store.get_preferences = lambda: {"schedule_source": "earliest", "display_timezone": "Asia/Tokyo"}
+        sent = []
+
+        async def deliver(target, message):
+            sent.append(message)
+            return True
+
+        now = datetime(2026, 11, 3, 23, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+        count = asyncio.run(ReminderScheduler(store, deliver).check_once(now))
+        self.assertEqual(count, 1)
+        self.assertIn("上映日期：日本时间 2026-11-04", sent[0])

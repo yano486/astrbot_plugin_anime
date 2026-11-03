@@ -95,8 +95,10 @@ def create_remote_web_app(plugin: Any, password: str) -> web.Application:
     app = web.Application(middlewares=[security], client_max_size=1024 * 1024)
     endpoint_names = (
         "status",
+        "preferences",
         "items",
         "targets",
+        "targets/umo",
         "targets/whitelist",
         "subscriptions",
         "movie-release",
@@ -176,7 +178,7 @@ def create_remote_web_app(plugin: Any, password: str) -> web.Application:
         return response
 
     for endpoint in endpoint_names:
-        methods = ("GET",) if endpoint in ("status", "items", "targets") else (("GET", "POST") if endpoint == "subscriptions" else ("POST",))
+        methods = ("GET",) if endpoint in ("status", "items", "targets") else (("GET", "POST") if endpoint in ("subscriptions", "preferences") else ("POST",))
         for method in methods:
             app.router.add_route(method, f"/api/{endpoint}", api_handler(endpoint), name=f"api_{endpoint.replace('/', '_')}_{method.lower()}")
     app.router.add_post("/api/login", login)

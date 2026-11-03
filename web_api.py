@@ -1,9 +1,39 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from .models import Subscription
+
+SCHEDULE_SOURCES = {"earliest", "yuc", "bgmlist", "bangumi"}
+DISPLAY_TIMEZONES = {"Asia/Shanghai", "Asia/Tokyo"}
+
+
+def validate_preferences(payload: Any) -> dict[str, str]:
+    if not isinstance(payload, dict):
+        raise ValueError("preferences must be an object")
+    values = {
+        "schedule_source": payload.get("schedule_source", "earliest"),
+        "display_timezone": payload.get("display_timezone", "Asia/Shanghai"),
+    }
+    if not isinstance(values["schedule_source"], str) or values["schedule_source"] not in SCHEDULE_SOURCES:
+        raise ValueError("schedule_source must be earliest, yuc, bgmlist, or bangumi")
+    if not isinstance(values["display_timezone"], str) or values["display_timezone"] not in DISPLAY_TIMEZONES:
+        raise ValueError("display_timezone must be Asia/Shanghai or Asia/Tokyo")
+    return values
+
+
+def validate_umo_target(value: Any) -> tuple[str, str, str]:
+    if not isinstance(value, str):
+        raise ValueError("UMO must use platform_name:message_type:session_id format")
+    parts = value.strip().split(":")
+    if (
+        len(parts) != 3
+        or any(not part or part != part.strip() or any(char.isspace() for char in part) for part in parts)
+        or not parts[1].endswith("Message")
+    ):
+        raise ValueError("UMO must use platform_name:message_type:session_id format")
+    return parts[0], parts[1], parts[2]
 
 
 def validate_subscriptions(
@@ -29,9 +59,9 @@ def validate_subscriptions(
         if not isinstance(key, str):
             raise ValueError("anime_key must be a string")
         is_movie = key in (movie_keys or set())
-        lead = 30 if is_movie else value.get("lead_minutes", 0)
+        lead = 0 if is_movie else value.get("lead_minutes", 15)
         enabled = value.get("enabled", True)
-        on_time = False if is_movie else value.get("on_time", True)
+        on_time = True if is_movie else value.get("on_time", True)
         if key not in item_keys:
             raise ValueError("unknown anime_key")
         if not is_movie and (isinstance(lead, bool) or not isinstance(lead, int) or not 0 <= lead <= 1440):
@@ -54,14 +84,16 @@ def validate_movie_release(payload: Any, movie_keys: set[str]) -> tuple[str, str
     if release_at == "":
         return key, ""
     if not isinstance(release_at, str):
-        raise ValueError("release_at must be an ISO local date and time")
+        raise ValueError("release_at must be an ISO local date")
+    if "T" in release_at or "t" in release_at:
+        raise ValueError("OVA and theatrical release dates must not include a custom time")
     try:
-        parsed = datetime.fromisoformat(release_at)
+        parsed = date.fromisoformat(release_at)
     except ValueError as exc:
-        raise ValueError("release_at must be an ISO local date and time") from exc
-    if parsed.tzinfo is not None or "T" not in release_at:
-        raise ValueError("release_at must be an ISO local date and time")
-    return key, parsed.replace(second=0, microsecond=0).isoformat(timespec="minutes")
+        raise ValueError("release_at must be an ISO local date") from exc
+    if len(release_at) != 10:
+        raise ValueError("release_at must be an ISO local date")
+    return key, parsed.isoformat()
 
 
 def validate_whitelist(payload: Any, target_ids: set[str]) -> tuple[str, bool]:
@@ -106,8 +138,10 @@ class AnimeWebAPI:
         base = "/astrbot_plugin_anime"
         routes = [
             ("/status", self.status, ["GET"], "Anime plugin status"),
+            ("/preferences", self.preferences, ["GET", "POST"], "Schedule and display preferences"),
             ("/items", self.items, ["GET"], "Anime catalog"),
             ("/targets", self.targets, ["GET"], "Bound targets"),
+            ("/targets/umo", self.add_umo_target, ["POST"], "Add AstrBot UMO target"),
             ("/targets/whitelist", self.update_whitelist, ["POST"], "Update target whitelist"),
             ("/subscriptions", self.subscriptions, ["GET", "POST"], "Anime subscriptions"),
             ("/movie-release", self.movie_release, ["POST"], "Set movie release time"),
@@ -129,7 +163,15 @@ class AnimeWebAPI:
                     "remote_webui_url": self.plugin.remote_webui_url,
                     "remote_webui_enabled": self.plugin.remote_webui_enabled,
                     "remote_webui_password_enabled": bool(getattr(self.plugin, "remote_webui_password_enabled", False)),
+                    "preferences": self.plugin.store.get_preferences(),
                 }
+            if endpoint == "preferences":
+                if method == "GET":
+                    return 200, {"preferences": self.plugin.store.get_preferences()}
+                values = validate_preferences(payload)
+                self.plugin.store.set_preferences(values)
+                self.plugin.store.save()
+                return 200, {"preferences": self.plugin.store.get_preferences()}
             if endpoint == "items":
                 season = query.get("season", self.plugin.current_season())
                 query_text = str(query.get("q", "")).strip().casefold()
@@ -166,6 +208,26 @@ class AnimeWebAPI:
                 }
             if endpoint == "targets":
                 return 200, {"targets": [target.__dict__ for target in self.plugin.store.get_targets()]}
+            if endpoint == "targets/umo":
+                from .models import Target
+
+                platform, message_type, session_id = validate_umo_target((payload or {}).get("umo"))
+                target_id = f"{platform}:{message_type}:{session_id}"
+                existing = self.plugin.store.state.setdefault("targets", {}).get(target_id)
+                if existing is None:
+                    self.plugin.store.upsert_target(Target(
+                        target_id=target_id,
+                        display_name=target_id,
+                        platform=platform,
+                        enabled=True,
+                        updated_at=datetime.now().isoformat(),
+                        whitelisted=True,
+                    ))
+                else:
+                    existing["enabled"] = True
+                    existing["whitelisted"] = True
+                self.plugin.store.save()
+                return 200, {"target_id": target_id, "added": existing is None}
             if endpoint == "targets/whitelist":
                 changes = validate_whitelist_updates(
                     payload,
@@ -218,10 +280,23 @@ class AnimeWebAPI:
                 if not target or not target.get("enabled", True):
                     return 400, {"error": "unknown or disabled target"}
                 try:
-                    await self.plugin._deliver(target_id, "🔔 动画订阅测试消息：此会话可以接收插件推送。")
+                    kind = (payload or {}).get("kind", "message")
+                    if kind == "message":
+                        await self.plugin._deliver(target_id, "🔔 动画订阅测试消息：此会话可以接收插件推送。")
+                    elif kind in {"reminder_card", "update_card"}:
+                        items = self.plugin.store.get_all_items()
+                        key = (payload or {}).get("anime_key")
+                        item = next((value for value in items if value.key == key), None) if key else None
+                        if kind == "reminder_card" and item is None:
+                            item = next((value for value in items if value.item_type in ("tv", "web") and value.schedules), None)
+                        if item is None:
+                            return 400, {"error": "no suitable anime found; refresh catalog or select an anime"}
+                        await self.plugin._deliver_card(target_id, item, "reminder" if kind == "reminder_card" else "update")
+                    else:
+                        return 400, {"error": "kind must be message, reminder_card, or update_card"}
                 except Exception as exc:
                     return 502, {"error": f"test push failed: {exc}"}
-                return 200, {"sent": True}
+                return 200, {"sent": True, "kind": kind}
             if endpoint == "refresh":
                 import re
 
@@ -254,8 +329,10 @@ class AnimeWebAPI:
     async def status(self): return await self._astrbot("status")
     async def items(self): return await self._astrbot("items")
     async def targets(self): return await self._astrbot("targets")
+    async def add_umo_target(self): return await self._astrbot("targets/umo")
     async def update_whitelist(self): return await self._astrbot("targets/whitelist")
     async def subscriptions(self): return await self._astrbot("subscriptions")
     async def movie_release(self): return await self._astrbot("movie-release")
     async def test_push(self): return await self._astrbot("test-push")
+    async def preferences(self): return await self._astrbot("preferences")
     async def refresh(self): return await self._astrbot("refresh")

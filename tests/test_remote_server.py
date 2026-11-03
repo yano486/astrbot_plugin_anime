@@ -47,6 +47,11 @@ class RemoteWebServerTests(IsolatedAsyncioTestCase):
             self.assertNotIn("login-panel", await page.text())
             response = await client.get("/api/status")
             self.assertEqual(response.status, 200)
+
+            preferences = await client.get("/api/preferences")
+            self.assertEqual(preferences.status, 200)
+            added = await client.post("/api/targets/umo", json={"umo": "default:FriendMessage:123456789"})
+            self.assertEqual(added.status, 200)
             self.assertNotIn("WWW-Authenticate", response.headers)
             self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
             self.assertEqual(response.headers["X-Frame-Options"], "DENY")

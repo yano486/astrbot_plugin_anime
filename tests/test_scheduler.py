@@ -50,6 +50,24 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual(len(sent), 1)
         self.assertIn("按排期提醒", sent[0][1])
 
+    def test_display_timezone_changes_labels_not_the_trigger_instant(self) -> None:
+        schedule = Schedule(weekday=3, hour=23, minute=0, raw_time="23:00", source="fixture")
+        item = AnimeItem(key="anime:tz", title="Test", schedules=[schedule], data_status="ok")
+        sub = Subscription("group:tz", item.key, lead_minutes=15, on_time=False)
+        store = FakeStore(item, sub)
+        store.get_preferences = lambda: {"display_timezone": "Asia/Tokyo", "schedule_source": "earliest"}
+        sent = []
+
+        async def deliver(target, message):
+            sent.append(message)
+            return True
+
+        now = datetime(2026, 11, 4, 21, 45, tzinfo=ZoneInfo("Asia/Shanghai"))
+        count = asyncio.run(ReminderScheduler(store, deliver).check_once(now))
+        self.assertEqual(count, 1)
+        self.assertIn("日本时间：周三 23:00", sent[0])
+        self.assertIn("北京时间：周三 22:00", sent[0])
+
     def test_legacy_conflicted_schedule_is_not_silently_paused(self) -> None:
         item = AnimeItem(key="anime:1", title="Test", schedules=[Schedule(2, 22, 0, "22:00", "x")], data_status="conflict")
         store = FakeStore(item, Subscription("group:1", item.key, lead_minutes=0))

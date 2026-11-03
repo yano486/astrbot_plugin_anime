@@ -111,14 +111,21 @@ def _font(size: int, bold: bool = False):
     return ImageFont.load_default(size=size)
 
 
-def render_airings_image(title: str, rows: list[Airing], output: Path) -> Path:
+def render_airings_image(title: str, rows: list[Airing], output: Path, display_timezone: str = "Asia/Shanghai") -> Path:
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     width, margin = 1200, 64
     row_height = 78
     groups: list[tuple[str, list[Airing]]] = []
     for row in rows:
-        label = row.at.strftime("%m月%d日 %A") if row.schedule is None else row.at.strftime("%m月%d日")
+        if row.schedule is None and row.item.release_date:
+            try:
+                label = date.fromisoformat(row.item.release_date[:10]).strftime("%m月%d日 %A")
+            except ValueError:
+                label = row.item.release_date[:10]
+        else:
+            display_at = row.at.astimezone(ZoneInfo(display_timezone))
+            label = display_at.strftime("%m月%d日 %A") if row.schedule is None else display_at.strftime("%m月%d日")
         if not groups or groups[-1][0] != label:
             groups.append((label, []))
         groups[-1][1].append(row)
@@ -128,7 +135,8 @@ def render_airings_image(title: str, rows: list[Airing], output: Path) -> Path:
     draw.rectangle((0, 0, width, 13), fill="#d66043")
     draw.text((margin, 50), "ANIME / SCHEDULE", font=_font(18, True), fill="#65806c")
     draw.text((margin, 87), title, font=_font(48, True), fill="#1c2d2b")
-    draw.text((margin, 157), f"北京时间  ·  共 {len(rows)} 部", font=_font(20), fill="#62716b")
+    timezone_label = "北京时间" if display_timezone == "Asia/Shanghai" else "日本时间"
+    draw.text((margin, 157), f"{timezone_label}  ·  共 {len(rows)} 部", font=_font(20), fill="#62716b")
     draw.line((margin, 212, width - margin, 212), fill="#cbd1c6", width=2)
     if not rows:
         draw.text((margin, 270), "这段时间没有已知排期。", font=_font(28), fill="#5a6963")
@@ -138,7 +146,8 @@ def render_airings_image(title: str, rows: list[Airing], output: Path) -> Path:
         y += 34
         for row in grouped:
             item, schedule = row.item, row.schedule
-            time_text = row.at.strftime("%H:%M")
+            display_at = row.at.astimezone(ZoneInfo(display_timezone))
+            time_text = display_at.strftime("%H:%M") if row.schedule is not None else "上映"
             draw.rounded_rectangle((margin, y, width - margin, y + 64), radius=10, fill="#fffefa", outline="#d9ded4", width=1)
             draw.text((margin + 18, y + 16), time_text, font=_font(23, True), fill="#334e41")
             draw.text((margin + 150, y + 14), item.title_cn or item.title, font=_font(21, True), fill="#202e2b")
@@ -156,7 +165,7 @@ def render_airings_image(title: str, rows: list[Airing], output: Path) -> Path:
     return output
 
 
-def render_weekly_image(title: str, rows: list[Airing], output: Path) -> Path:
+def render_weekly_image(title: str, rows: list[Airing], output: Path, display_timezone: str = "Asia/Shanghai") -> Path:
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     width, margin = 1800, 44
@@ -165,7 +174,7 @@ def render_weekly_image(title: str, rows: list[Airing], output: Path) -> Path:
     start_y = 230
     by_day: dict[date, list[Airing]] = {}
     for row in rows:
-        by_day.setdefault(row.at.date(), []).append(row)
+        by_day.setdefault(row.at.astimezone(ZoneInfo(display_timezone)).date(), []).append(row)
     days = sorted(by_day)
     day_heights = [max(116, 58 + ((len(by_day[day]) + columns - 1) // columns) * (card_height + 9)) for day in days]
     height = start_y + sum(day_heights) + 75
@@ -174,7 +183,8 @@ def render_weekly_image(title: str, rows: list[Airing], output: Path) -> Path:
     draw.rounded_rectangle((24, 20, width - 24, 145), radius=22, fill="#151522", outline="#29293a", width=2)
     draw.text((margin + 4, 44), "ANIME / WEEKLY GRID", font=_font(17, True), fill="#68cbd4")
     draw.text((margin, 76), title, font=_font(42, True), fill="#f3f1f6")
-    draw.text((margin, 137), f"北京时间 · 共 {len(rows)} 部 · 按星期分区", font=_font(17), fill="#9c9daf")
+    timezone_label = "北京时间" if display_timezone == "Asia/Shanghai" else "日本时间"
+    draw.text((margin, 137), f"{timezone_label} · 共 {len(rows)} 部 · 按星期分区", font=_font(17), fill="#9c9daf")
     draw.text((width - 280, 57), f"{len(days)} 个播放日", font=_font(20, True), fill="#70d3bd")
     accents = ["#4ca1f2", "#47d77a", "#f2ad2f", "#c748dd", "#f04464", "#26c8d2", "#63dd37"]
     y = start_y
@@ -193,7 +203,8 @@ def render_weekly_image(title: str, rows: list[Airing], output: Path) -> Path:
             x = margin + label_width + col * (card_width + gap)
             card_y = y + 12 + line * (card_height + 9)
             draw.rounded_rectangle((x, card_y, x + card_width, card_y + card_height), radius=11, fill="#191927", outline="#323246", width=1)
-            draw.text((x + 10, card_y + 8), row.at.strftime("%H:%M"), font=_font(14, True), fill="#50cad5")
+            display_at = row.at.astimezone(ZoneInfo(display_timezone))
+            draw.text((x + 10, card_y + 8), display_at.strftime("%H:%M"), font=_font(14, True), fill="#50cad5")
             name = row.item.title_cn or row.item.title
             draw.text((x + 10, card_y + 30), name[:13], font=_font(15, True), fill="#eceaf1")
             if row.schedule:
@@ -203,5 +214,44 @@ def render_weekly_image(title: str, rows: list[Airing], output: Path) -> Path:
             draw.text((x + 10, card_y + 58), jst, font=_font(11), fill="#aaaabc")
         y += band_height
     draw.text((margin, height - 42), "排期来自公开资料，仅供参考；临时改期或延期以官方公告为准。", font=_font(13), fill="#77788a")
+    image.save(output, format="PNG", optimize=True)
+    return output
+
+
+def render_notification_card(item: AnimeItem, mode: str, output: Path, display_timezone: str = "Asia/Shanghai") -> Path:
+    if mode not in {"reminder", "update"}:
+        raise ValueError("mode must be reminder or update")
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    width, height = 1000, 520
+    image = Image.new("RGB", (width, height), "#101b1a")
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((24, 24, width - 24, height - 24), radius=26, fill="#162522", outline="#3a574b", width=2)
+    draw.rectangle((24, 24, width - 24, 34), fill="#d66043")
+    title = item.title_cn or item.title
+    label = "动画开播提醒" if mode == "reminder" else "动画更新卡片"
+    draw.text((64, 70), "ANIME / SCHEDULE", font=_font(17, True), fill="#85b59a")
+    draw.text((64, 108), label, font=_font(36, True), fill="#f3f1e9")
+    draw.text((64, 183), title[:28], font=_font(42, True), fill="#ffffff")
+    if item.schedules:
+        schedule = item.schedules[0]
+        offset = -60 if display_timezone == "Asia/Shanghai" else 0
+        total = schedule.hour * 60 + schedule.minute + offset
+        day_shift, minutes = divmod(total, 24 * 60)
+        weekday = ((schedule.weekday - 1 + day_shift) % 7) + 1
+        weekday_text = "\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u65e5"[weekday - 1]
+        date_text = f"\u6bcf\u5468{weekday_text} {minutes // 60:02d}:{minutes % 60:02d}"
+    elif item.release_date:
+        date_text = item.release_date[:10]
+    else:
+        date_text = "时间待定"
+    zone_label = "北京时间" if display_timezone == "Asia/Shanghai" else "日本时间"
+    draw.text((64, 275), f"{zone_label}  {date_text}", font=_font(30, True), fill="#e7b978")
+    if item.title and item.title != title:
+        draw.text((64, 333), item.title[:52], font=_font(20), fill="#a9b8ad")
+    sources = "、".join(item.sources) or "Bangumi / YUC / bgmlist"
+    draw.text((64, 405), f"数据来源：{sources}"[:72], font=_font(17), fill="#a9b8ad")
+    draw.line((64, 452, width - 64, 452), fill="#354941", width=1)
+    draw.text((64, 468), "排期仅供参考；临时调整以官方信息为准。", font=_font(14), fill="#778b80")
     image.save(output, format="PNG", optimize=True)
     return output

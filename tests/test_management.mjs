@@ -25,8 +25,8 @@ function setup(apiGet, apiPost = async () => ({})) {
     return elements.get(name);
   };
   const sandbox = vm.createContext({
-    window: { AstrBotPluginView: { ready: () => new Promise(() => {}), apiGet, apiPost } },
-    document: { querySelector: getElement, createElement: () => new Element(), querySelectorAll: () => [] },
+    window: { AstrBotPluginView: { ready: () => new Promise(() => {}), apiGet, apiPost }, localStorage: { getItem: () => null, setItem() {} } },
+    document: { querySelector: getElement, createElement: () => new Element(), querySelectorAll: () => [], documentElement: { dataset: {} } },
     console, Date, Map, Set,
   });
   vm.runInContext(source, sandbox);
@@ -69,8 +69,23 @@ test('saving cannot copy the loaded group subscriptions into a different target'
 
 test('Monday 00:30 Japan displays Sunday 23:30 Beijing', () => {
   const app = setup(async () => ({}));
-  const text = app.run('firstTime({schedules:[{weekday:1,hour:0,minute:30}]})');
+  const text = app.run('firstTime({schedules:[{weekday:1,hour:0,minute:30}]}, "Asia/Shanghai")');
   assert.match(text, /北京 周日 23:30/);
+});
+
+test('Japan display preference keeps the Japanese weekday and clock', () => {
+  const app = setup(async () => ({}));
+  const text = app.run('firstTime({schedules:[{weekday:1,hour:23,minute:0}]}, "Asia/Tokyo")');
+  assert.match(text, /日本 周一 23:00/);
+});
+
+test('movie year filter omits invalid dates such as the string None', () => {
+  const app = setup(async () => ({}));
+  app.run('state.items = [{item_type:"movie", release_date:"None"}, {item_type:"ova", release_date:"2027-04-10"}]');
+  app.run('movieYears()');
+  const options = app.element('#movie-year').children;
+  assert.equal(options.some(option => option.value === 'None'), false);
+  assert.equal(options.some(option => option.value === '2027'), true);
 });
 
 test('touch filters keep a visible field label outside the native select value', () => {
@@ -83,6 +98,18 @@ test('settings page exposes whitelist, test-push, and remote WebUI status', () =
   assert.match(markup, /id="save-whitelist"/);
   assert.match(markup, /id="test-push"/);
   assert.match(markup, /id="remote-webui-status"/);
+  assert.match(markup, /id="umo-target"/);
+  assert.match(markup, /id="schedule-source"/);
+  assert.match(markup, /id="display-timezone"/);
+  assert.match(markup, /id="test-reminder-card"/);
+  assert.match(markup, /id="test-update-card"/);
+  assert.match(markup, /id="toggle-theme"/);
+});
+
+test('YUC remains available in source filter even when the current items lack it', () => {
+  const app = setup(async () => ({}));
+  app.run('state.items = []; state.sources = {bangumi: {status:"ok"}}; sourceChoices()');
+  assert.equal(app.element('#source').children.some(option => option.value === 'yuc'), true);
 });
 
 test('catalog cards make Bangumi covers links and let other card areas toggle selection', () => {

@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image
 
 from astrbot_plugin_anime.models import AnimeItem, Schedule
-from astrbot_plugin_anime.push_tables import airings_between, upcoming_movies, render_airings_image
+from astrbot_plugin_anime.push_tables import airings_between, upcoming_movies, render_airings_image, render_notification_card
 
 
 class PushTableTests(unittest.TestCase):
@@ -58,6 +58,14 @@ class PushTableTests(unittest.TestCase):
                 self.assertEqual(image.format, "PNG")
                 self.assertEqual(image.width, 1200)
                 self.assertGreater(image.height, 200)
+
+    def test_notification_card_renders_for_reminder_and_update_modes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            for mode in ("reminder", "update"):
+                path = render_notification_card(self.item, mode, Path(directory) / f"{mode}.png", "Asia/Tokyo")
+                with Image.open(path) as image:
+                    self.assertEqual(image.format, "PNG")
+                    self.assertGreater(image.width, 500)
 
 
 if __name__ == "__main__":

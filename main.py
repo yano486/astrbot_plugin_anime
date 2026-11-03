@@ -17,8 +17,8 @@ from .scheduler import ReminderScheduler
 from .services import RefreshService
 from .store import JsonStore
 from .web_api import AnimeWebAPI
-from .push_tables import Airing, airings_between, render_airings_image, render_weekly_image, upcoming_movies
-from .time_utils import BJ
+from .push_tables import Airing, airings_between, render_airings_image, render_weekly_image, render_notification_card, upcoming_movies
+from .time_utils import BJ, JST
 
 
 @register("astrbot_plugin_anime", "Aut-sep", "日本动画季度订阅和排期提醒", "0.2.1")
@@ -161,6 +161,9 @@ class AnimePlugin(Star):
         expected_sources = {"bangumi", "bgmlist", "yuc"}
         if set(self.store.state.get("source_status", {})) != expected_sources:
             return True
+        preferences = self.store.get_preferences()
+        if self.store.state.get("schedule_source_mode", "earliest") != preferences.get("schedule_source", "earliest"):
+            return True
         retired_sources = {"acgsecrets", "youranimes"}
         return any(
             retired_sources.intersection(item.sources)
@@ -175,6 +178,27 @@ class AnimePlugin(Star):
         if result is False:
             raise RuntimeError("AstrBot reported that the target message was not sent")
         return True
+
+    async def _deliver_card(self, target_id: str, item, mode: str) -> bool:
+        from uuid import uuid4
+
+        path = self.data_dir / "push_tables" / f"{uuid4().hex}.png"
+        preferences = self.store.get_preferences()
+        try:
+            await asyncio.to_thread(
+                render_notification_card,
+                item,
+                mode,
+                path,
+                preferences["display_timezone"],
+            )
+            chain = MessageChain().file_image(str(path))
+            result = await self.context.send_message(target_id, chain)
+            if result is False:
+                raise RuntimeError("AstrBot reported that the target card was not sent")
+            return True
+        finally:
+            path.unlink(missing_ok=True)
 
     @staticmethod
     def _action_name(event: AstrMessageEvent, action: str) -> tuple[str, str]:
@@ -208,8 +232,9 @@ class AnimePlugin(Star):
 
         path = self.data_dir / "push_tables" / f"{uuid4().hex}.png"
         try:
+            preferences = self.store.get_preferences()
             renderer = render_weekly_image if title == "本周动画播放表" else render_airings_image
-            await asyncio.to_thread(renderer, title, rows, path)
+            await asyncio.to_thread(renderer, title, rows, path, preferences["display_timezone"])
         except Exception as exc:
             logger.error(f"[anime] 图表生成失败: {exc}")
             return event.plain_result(f"图片表生成失败：{exc}")
@@ -258,7 +283,10 @@ class AnimePlugin(Star):
             yield event.plain_result(message + "关闭请用 /anime sub off 或 /anime 订阅 关闭。")
             return
 
-        now = datetime.now(BJ)
+        preferences = self.store.get_preferences()
+        display_timezone = preferences["display_timezone"]
+        display_zone = JST if display_timezone == "Asia/Tokyo" else BJ
+        now = datetime.now(BJ).astimezone(display_zone)
         if action_name == "ova":
             target_id = getattr(event, "unified_msg_origin", None)
             if not target_id:
@@ -273,7 +301,7 @@ class AnimePlugin(Star):
                 yield event.plain_result("当前会话尚未在 WebUI 选择剧场版/OVA；请在片单筛选中选好后保存订阅。")
                 return
             selected_items = []
-            override_times = {}
+            selected_by_key = {}
             for key in selected_keys:
                 item = movie_items[key]
                 override = self.store.get_movie_release_override(key)
@@ -282,26 +310,26 @@ class AnimePlugin(Star):
                         parsed = datetime.fromisoformat(override)
                         parsed = parsed.replace(tzinfo=BJ) if parsed.tzinfo is None else parsed.astimezone(BJ)
                         item = replace(item, release_date=parsed.date().isoformat())
-                        override_times[key] = parsed
                     except ValueError:
                         pass
                 selected_items.append(item)
+                selected_by_key[key] = item
             rows = upcoming_movies(selected_items, now.date())
             adjusted = []
             for row in rows:
-                adjusted.append(Airing(movie_items[row.item.key], None, override_times.get(row.item.key, row.at)))
+                adjusted.append(Airing(selected_by_key[row.item.key], None, row.at))
             yield await self._send_airings_image(event, "已选剧场版与OVA上映表", adjusted)
             return
 
         all_items = [item for item in self.store.get_items() if item.region in ("jp", "mixed")]
 
         if action_name == "push":
-            start = datetime.combine(now.date(), time.min, BJ)
+            start = datetime.combine(now.date(), time.min, display_zone)
             end = start + timedelta(days=1)
             title = "今日动画播放表"
         else:
             monday = now.date() - timedelta(days=now.isoweekday() - 1)
-            start = datetime.combine(monday, time.min, BJ)
+            start = datetime.combine(monday, time.min, display_zone)
             end = start + timedelta(days=7)
             title = "本周动画播放表"
         rows = airings_between(all_items, start, end)

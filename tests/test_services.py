@@ -63,6 +63,23 @@ class RefreshTests(unittest.TestCase):
             self.assertEqual((item.schedules[0].hour, item.schedules[0].minute), (1, 30))
             self.assertIn("01:40", item.schedule_note)
 
+    def test_refresh_applies_saved_single_source_preference(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = JsonStore(Path(directory) / "state.json")
+            store.set_preferences({"schedule_source": "yuc", "display_timezone": "Asia/Shanghai"})
+            records = [
+                SourceRecord(source="yuc", title="Test", bangumi_id=77, region="jp",
+                             schedules=[Schedule(1, 22, 0, "22:00", "yuc")]),
+                SourceRecord(source="bgmlist", title="Test", bangumi_id=77, region="jp",
+                             schedules=[Schedule(1, 21, 0, "21:00", "bgmlist")]),
+            ]
+            adapters = [FakeAdapter(SourceResult(source, [record])) for source, record in (("yuc", records[0]), ("bgmlist", records[1]))]
+            asyncio.run(RefreshService(None, store, adapters).refresh("2026-10"))
+
+            item = store.get_items()[0]
+            self.assertEqual(item.schedules[0].source, "yuc")
+            self.assertEqual((item.schedules[0].hour, item.schedules[0].minute), (22, 0))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -51,6 +51,32 @@ class MergeTests(unittest.TestCase):
         self.assertEqual((item.schedules[0].hour, item.schedules[0].minute), (1, 30))
         self.assertIn("01:40", item.schedule_note)
 
+    def test_schedule_source_can_be_limited_to_yuc_or_bgmlist(self) -> None:
+        records = [
+            SourceRecord(source=source, title="Same Title", bangumi_id=9, region="jp",
+                         schedules=[Schedule(1, 1, minute, f"01:{minute:02d}", source)])
+            for source, minute in (("yuc", 30), ("bgmlist", 45))
+        ]
+
+        yuc_item = merge_records(records, schedule_source="yuc")[0]
+        bgmlist_item = merge_records(records, schedule_source="bgmlist")[0]
+        earliest_item = merge_records(records, schedule_source="earliest")[0]
+
+        self.assertEqual((yuc_item.schedules[0].source, yuc_item.schedules[0].minute), ("yuc", 30))
+        self.assertEqual((bgmlist_item.schedules[0].source, bgmlist_item.schedules[0].minute), ("bgmlist", 45))
+        self.assertEqual((earliest_item.schedules[0].source, earliest_item.schedules[0].minute), ("yuc", 30))
+
+    def test_bangumi_time_mode_does_not_fall_back_to_other_source_time(self) -> None:
+        records = [
+            SourceRecord(source="bangumi", title="Same Title", bangumi_id=10, region="jp"),
+            record("yuc", "Same Title", 10, 20),
+        ]
+        item = merge_records(records, schedule_source="bangumi")[0]
+
+        self.assertEqual(item.schedules, [])
+        self.assertEqual(item.data_status, "time_unknown")
+        self.assertIn("Bangumi", item.schedule_note)
+
     def test_extended_clock_and_next_day_clock_are_not_a_conflict(self):
         first = SourceRecord(source="yuc", title="Test", bangumi_id=3,
                              schedules=[Schedule(1, 25, 30, "25:30", "yuc")])

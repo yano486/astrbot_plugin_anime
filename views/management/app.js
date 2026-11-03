@@ -1,6 +1,6 @@
 const bridge = window.AstrBotPluginView;
 const $ = (selector) => document.querySelector(selector);
-const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", sources: {}, movieSources: {} };
+const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", sources: {}, movieSources: {}, preferences: { schedule_source: "earliest", display_timezone: "Asia/Shanghai" } };
 
 function currentSeason() {
   const now = new Date();
@@ -34,12 +34,12 @@ function safeHttpUrl(value = "") {
 function isMovie(item) { return ["movie", "ova"].includes(item.item_type); }
 
 function movieReleaseValue(item) {
-  if (item.release_at) return item.release_at.slice(0, 16);
-  return item.release_date ? `${item.release_date.slice(0, 10)}T00:00` : "";
+  const value = item.release_at || item.release_date || "";
+  return /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : "";
 }
 
 function movieYears() {
-  const years = new Set(state.items.filter(isMovie).map(item => item.release_date?.slice(0, 4)).filter(Boolean));
+  const years = new Set(state.items.filter(isMovie).map(item => item.release_date?.slice(0, 4)).filter(year => /^\d{4}$/.test(year || "")));
   const currentYear = new Date().getFullYear();
   years.add(String(currentYear));
   if (new Date().getMonth() === 11) years.add(String(currentYear + 1));
@@ -52,24 +52,30 @@ function movieYears() {
   select.value = years.has(old) ? old : String(currentYear);
 }
 
-function firstTime(item) {
+function firstTime(item, timezone = state.preferences.display_timezone) {
   if (!item.schedules?.length) return "时间待定";
   const s = item.schedules[0];
-  const totalBeijingMinutes = s.hour * 60 + s.minute - 60;
-  const normalized = ((totalBeijingMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
-  const dayShift = Math.floor(totalBeijingMinutes / (24 * 60));
-  const bjHour = Math.floor(normalized / 60);
-  const bjMinute = normalized % 60;
-  const day = (((s.weekday - 1 + dayShift) % 7) + 7) % 7 + 1;
-  const japanClock = String(s.raw_time || `${s.hour}:${String(s.minute).padStart(2,"0")}`).replace(/~/g, "").trim();
-  return `日本 周${"一二三四五六日"[s.weekday - 1]} ${japanClock} → 北京 周${"一二三四五六日"[day - 1]} ${String(bjHour).padStart(2,"0")}:${String(bjMinute).padStart(2,"0")}`;
+  const offset = timezone === "Asia/Shanghai" ? -60 : 0;
+  const total = s.hour * 60 + s.minute + offset;
+  const dayShift = Math.floor(total / (24 * 60));
+  const clock = ((total % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const day = (((s.weekday - 1 + dayShift) % 7) + 7) % 7;
+  const zoneName = timezone === "Asia/Shanghai" ? "北京" : "日本";
+  const sourceName = timezone === "Asia/Shanghai" ? "日本" : "北京";
+  const sourceOffset = timezone === "Asia/Shanghai" ? 0 : -60;
+  const sourceTotal = s.hour * 60 + s.minute + sourceOffset;
+  const sourceShift = Math.floor(sourceTotal / (24 * 60));
+  const sourceClock = ((sourceTotal % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const sourceDay = (((s.weekday - 1 + sourceShift) % 7) + 7) % 7;
+  return `${zoneName} 周${"一二三四五六日"[day]} ${String(Math.floor(clock / 60)).padStart(2,"0")}:${String(clock % 60).padStart(2,"0")} → ${sourceName} 周${"一二三四五六日"[sourceDay]} ${String(Math.floor(sourceClock / 60)).padStart(2,"0")}:${String(sourceClock % 60).padStart(2,"0")}`;
 }
 
 function sourceChoices() {
   const select = $("#source");
   const old = select.value;
   select.innerHTML = '<option value="">所有来源</option>';
-  [...new Set(state.items.flatMap(item => item.sources || []))].sort().forEach(source => {
+  const sources = new Set(["yuc", ...Object.keys(state.sources || {}), ...state.items.flatMap(item => item.sources || [])]);
+  [...sources].sort().forEach(source => {
     const option = document.createElement("option"); option.value = source; option.textContent = source; select.append(option);
   });
   select.value = old;
@@ -108,7 +114,7 @@ function render() {
   if (!items.length) { catalog.innerHTML = '<div class="empty">当前筛选没有作品。可以检查来源状态或尝试放宽筛选条件。</div>'; return; }
   items.forEach(item => {
     const movie = isMovie(item);
-    const selected = state.subscriptions.get(item.key) || { enabled: false, lead_minutes: movie ? 30 : 0, on_time: !movie };
+    const selected = state.subscriptions.get(item.key) || { enabled: false, lead_minutes: movie ? 0 : 15, on_time: true };
     const card = document.createElement("article"); card.className = `anime-card ${selected.enabled ? "subscribed" : ""}`;
     const imageUrl = safeHttpUrl(item.cover_url);
     const detailUrl = safeHttpUrl(item.detail_url || (item.bangumi_id ? `https://bgm.tv/subject/${item.bangumi_id}` : ""));
@@ -117,7 +123,7 @@ function render() {
     const role = item.season_role === "new" ? '<i class="badge badge-new">新作</i>' : item.season_role === "continuing" ? '<i class="badge badge-cont">续播</i>' : "";
     const note = item.schedule_note ? `<div class="meta warning">${safe(item.schedule_note)}</div>` : item.data_status === "time_unknown" && !movie ? '<div class="meta warning">暂无可靠播出时间，暂不发送时间提醒</div>' : "";
     const timing = movie
-      ? `<div class="movie-release"><label>上映时间（北京时间）</label><input class="release-at" type="datetime-local" value="${safe(movieReleaseValue(item))}"><small>自动提醒默认提前 30 分钟；来源仅有日期时以 00:00 为锚点，可在此补充具体时间。</small><div class="release-actions"><button class="button button-quiet save-release" type="button">保存上映时间</button><button class="button button-quiet reset-release" type="button">恢复来源日期</button></div></div>`
+      ? `<div class="movie-release"><label>上映日期</label><input class="release-at" type="date" value="${safe(movieReleaseValue(item).slice(0,10))}"><small>OVA 与剧场版仅按日期触发提醒，不使用 TV 的提前分钟设置。</small><div class="release-actions"><button class="button button-quiet save-release" type="button">保存上映日期</button><button class="button button-quiet reset-release" type="button">恢复来源日期</button></div></div>`
       : `<div class="reminder-controls"><label>提前</label><input class="lead" type="number" min="0" max="1440" step="5" value="${Number(selected.lead_minutes) || 0}"><span>分钟</span><label><input class="on-time" type="checkbox" ${selected.on_time ? "checked" : ""}> 准点提醒</label></div>`;
     const displayTime = movie ? `上映日期：${safe(item.release_date || "待确认")}` : safe(firstTime(item));
     card.innerHTML = `${cover}<div class="card-main"><div class="card-top">${role}<i class="badge badge-cont">${safe(item.item_type || "类型待确认")}</i><i class="badge">${safe(item.region === "jp" ? "日本" : item.region === "mixed" ? "地区混合" : "地区待确认")}</i></div><h3>${safe(item.title_cn || item.title)}</h3><div class="original">${safe(item.title)}</div><div class="air-time">${displayTime}</div><div class="meta">${safe((item.genres || []).slice(0,4).join(" · "))}</div><div class="meta">来源：${safe((item.sources || []).join("、") || "尚无排期来源")}</div>${note}${timing}</div><input class="card-check" type="checkbox" ${selected.enabled ? "checked" : ""} aria-label="订阅 ${safe(item.title_cn || item.title)}">`;
@@ -180,12 +186,24 @@ async function loadItems() {
   $("#refresh-status").textContent = "正在读取作品目录…";
   const result = await bridge.apiGet("items", { season: $("#season").value });
   state.items = result.items || []; movieYears(); sourceChoices(); render();
+  const itemSelect = $("#test-item");
+  if (itemSelect) {
+    const oldItem = itemSelect.value;
+    itemSelect.innerHTML = '<option value="">选择动画</option>';
+    state.items.filter(item => item.item_type === "tv" || item.item_type === "web").forEach(item => {
+      const option = document.createElement("option"); option.value = item.key; option.textContent = item.title_cn || item.title; itemSelect.append(option);
+    });
+    if (state.items.some(item => item.key === oldItem)) itemSelect.value = oldItem;
+  }
   $("#refresh-status").textContent = `已载入 ${result.count || 0} 部 · ${result.updated_at || "尚未刷新"}`;
 }
 
 async function loadStatus() {
   const data = await bridge.apiGet("status");
+  state.preferences = {...state.preferences, ...(data.preferences || {})};
+  applyPreferences();
   state.sources = data.sources || {}; state.movieSources = data.movie_sources || {}; renderSources();
+  sourceChoices();
   $("#logout").hidden = !data.remote_webui_password_enabled;
   $("#remote-webui-status").textContent = data.remote_webui_enabled
     ? `${data.remote_webui_url} · ${data.remote_webui_password_enabled ? "密码保护已开启" : "未设置密码，局域网内可直接访问"}`
@@ -202,6 +220,12 @@ async function loadTargets() {
   testSelect.innerHTML = '<option value="">选择推送目标</option>';
   state.targets.filter(target => target.enabled).forEach(target => { const option = document.createElement("option"); option.value = target.target_id; option.textContent = target.display_name || target.target_id; testSelect.append(option); });
   if (state.targets.some(target => target.enabled && target.target_id === oldTestTarget)) testSelect.value = oldTestTarget;
+  const itemSelect = $("#test-item"); const oldItem = itemSelect.value;
+  itemSelect.innerHTML = '<option value="">选择动画</option>';
+  state.items.filter(item => item.item_type === "tv" || item.item_type === "web").forEach(item => {
+    const option = document.createElement("option"); option.value = item.key; option.textContent = item.title_cn || item.title; itemSelect.append(option);
+  });
+  if (state.items.some(item => item.key === oldItem)) itemSelect.value = oldItem;
   const list = $("#whitelist-list"); list.replaceChildren();
   state.targets.filter(target => target.enabled).forEach(target => {
     const label = document.createElement("label"); label.className = "whitelist-target";
@@ -241,13 +265,69 @@ async function sendTestPush() {
   $("#test-push").disabled = true;
   $("#test-push-status").textContent = "正在发送…";
   try {
-    await bridge.apiPost("test-push", {target_id: targetId});
+    await bridge.apiPost("test-push", {target_id: targetId, kind: "message"});
     $("#test-push-status").textContent = "测试消息已发送。";
   } catch (error) {
     $("#test-push-status").textContent = `发送失败：${error.message}`;
   } finally {
     $("#test-push").disabled = false;
   }
+}
+
+async function sendCardTest(kind) {
+  const targetId = $("#test-target").value;
+  if (!targetId) { $("#test-push-status").textContent = "请先选择推送目标。"; return; }
+  const payload = {target_id: targetId, kind};
+  if (kind === "update_card") {
+    payload.anime_key = $("#test-item").value;
+    if (!payload.anime_key) { $("#test-push-status").textContent = "请先选择要测试的动画。"; return; }
+  }
+  $("#test-push-status").textContent = "正在生成并发送图片卡片…";
+  try {
+    await bridge.apiPost("test-push", payload);
+    $("#test-push-status").textContent = "图片卡片已发送。";
+  } catch (error) {
+    $("#test-push-status").textContent = `卡片发送失败：${error.message}`;
+  }
+}
+
+async function addUmoTarget() {
+  const input = $("#umo-target");
+  try {
+    const result = await bridge.apiPost("targets/umo", {umo: input.value.trim()});
+    await loadTargets();
+    $("#test-target").value = result.target_id;
+    input.value = "";
+    $("#test-push-status").textContent = "会话已添加到白名单，可直接用于推送测试。";
+  } catch (error) {
+    $("#test-push-status").textContent = `UMO 添加失败：${error.message}`;
+  }
+}
+
+function applyPreferences() {
+  $("#schedule-source").value = state.preferences.schedule_source;
+  $("#display-timezone").value = state.preferences.display_timezone;
+  render();
+}
+
+async function savePreferences() {
+  const values = {schedule_source: $("#schedule-source").value, display_timezone: $("#display-timezone").value};
+  try {
+    const result = await bridge.apiPost("preferences", values);
+    state.preferences = result.preferences;
+    applyPreferences();
+    $("#save-status").textContent = "排期与时区设置已保存。刷新番表后应用新的排期来源。";
+  } catch (error) {
+    $("#save-status").textContent = `设置保存失败：${error.message}`;
+  }
+}
+
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  window.localStorage.setItem("anime-management-theme", theme);
+  const button = $("#toggle-theme");
+  button.textContent = theme === "dark" ? "切换亮色" : "切换暗色";
+  button.setAttribute("aria-pressed", String(theme === "dark"));
 }
 
 async function logout() {
@@ -265,6 +345,7 @@ async function refreshAll() {
 async function init() {
   try {
     await bridge.ready(); seasonOptions();
+    setTheme(window.localStorage.getItem("anime-management-theme") === "dark" ? "dark" : "light");
     for (const id of ["query", "region", "type", "weekday", "role", "movie-year", "source"]) $("#" + id).addEventListener(id === "query" ? "input" : "change", render);
     $("#season").addEventListener("change", loadItems);
     $("#refresh").addEventListener("click", refreshAll);
@@ -272,6 +353,11 @@ async function init() {
     $("#save-subs").addEventListener("click", saveSubscriptions);
     $("#save-whitelist").addEventListener("click", saveWhitelist);
     $("#test-push").addEventListener("click", sendTestPush);
+    $("#test-reminder-card").addEventListener("click", () => sendCardTest("reminder_card"));
+    $("#test-update-card").addEventListener("click", () => sendCardTest("update_card"));
+    $("#add-umo").addEventListener("click", addUmoTarget);
+    $("#save-preferences").addEventListener("click", savePreferences);
+    $("#toggle-theme").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
     $("#logout").addEventListener("click", logout);
     $("#show-catalog").addEventListener("click", () => showView("catalog"));
     $("#show-settings").addEventListener("click", () => showView("settings"));

@@ -35,6 +35,10 @@ def install_astrbot_stubs():
             self.text = text
             return self
 
+        def file_image(self, path):
+            self.image_path = path
+            return self
+
     class Star:
         def __init__(self, context):
             self.context = context

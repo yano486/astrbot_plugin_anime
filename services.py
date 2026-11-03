@@ -22,7 +22,9 @@ class RefreshService:
     async def refresh(self, season: str) -> dict[str, Any]:
         results: list[SourceResult] = await asyncio.gather(*(adapter.fetch(season) for adapter in self.adapters))
         records = [record for result in results if result.status == "ok" for record in result.records]
-        items = merge_records(records)
+        preferences = self.store.get_preferences() if hasattr(self.store, "get_preferences") else {}
+        schedule_source = preferences.get("schedule_source", "earliest")
+        items = merge_records(records, schedule_source)
         status = {
             result.source: {
                 "status": result.status,
@@ -55,7 +57,7 @@ class RefreshService:
                         current.schedules.append(schedule)
                 current.sources = sorted(set(current.sources) | (set(old.sources) & failed_sources))
                 current.source_urls.update({key: value for key, value in old.source_urls.items() if key in failed_sources})
-                current.schedules, current.schedule_note = unify_schedules(current.schedules)
+                current.schedules, current.schedule_note = unify_schedules(current.schedules, schedule_source)
                 if current.schedules:
                     current.data_status = "partial" if failed_sources.intersection(old.sources) else "ok"
                 else:
@@ -66,6 +68,7 @@ class RefreshService:
             by_key.update({item.key: item for item in retained})
             self.store.set_items(list(by_key.values()), status)
             self.store.state["season"] = season
+            self.store.state["schedule_source_mode"] = schedule_source
             self.store.state["updated_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         self.store.state["source_status"] = status
         self.store.save()

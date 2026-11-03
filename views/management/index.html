@@ -17,6 +17,7 @@
       <div class="mast-actions">
         <select id="season" aria-label="选择季度"></select>
         <button class="button button-dark" id="refresh">刷新番表</button>
+        <button class="button button-quiet" id="toggle-theme" type="button" aria-pressed="false">切换暗色</button>
       </div>
     </header>
 
@@ -61,14 +62,25 @@
       <section class="settings-heading"><span class="section-index">02</span><div><h2>推送设置</h2><p>作品订阅会自动加入白名单；关闭白名单后，该会话不会收到自动提醒。</p></div></section>
       <section class="whitelist-panel">
         <div class="whitelist-heading"><div><strong>推送白名单</strong><small>启用订阅后自动加入，也可在此手动管理。</small></div><button class="button button-quiet" id="save-whitelist">保存白名单</button></div>
+        <div class="umo-add"><label for="umo-target">添加 /sid 获取到的 UMO</label><input id="umo-target" type="text" placeholder="default:FriendMessage:123456789" autocomplete="off"><button class="button button-quiet" id="add-umo" type="button">添加到白名单</button><small>格式：platform_name:message_type:session_id，例如 default:FriendMessage:123456789。</small></div>
         <div id="whitelist-list" class="whitelist-list"></div>
       </section>
+      <section class="preference-panel">
+        <div><span class="section-index">03</span><h2>排期与时间</h2><p>时间提醒按实际播出时刻计算，OVA 和剧场版仍只按上映日期提醒。</p></div>
+        <div class="preference-controls">
+          <label>排期来源<select id="schedule-source"><option value="earliest">同时获取，采用最早时间（推荐）</option><option value="yuc">YUC</option><option value="bgmlist">bgmlist</option><option value="bangumi">Bangumi（当前不提供具体播出时刻）</option></select></label>
+          <label>显示与推送时间<select id="display-timezone"><option value="Asia/Shanghai">北京时间</option><option value="Asia/Tokyo">日本时间</option></select></label>
+          <button class="button button-accent" id="save-preferences" type="button">保存设置</button>
+        </div>
+        <small>默认提前 15 分钟提醒 TV / 有时间排期的 WEB 动画。日本 23:00 与北京时间 22:00 是同一时刻；切换只改变显示时区，不改变提醒触发时刻。</small>
+      </section>
       <section class="test-push-panel">
-        <div><span class="section-index">03</span><h2>推送测试</h2><p>选择已绑定的群聊或会话，发送一条测试消息确认机器人可以主动推送。</p></div>
-        <div class="test-push-controls"><select id="test-target" aria-label="选择测试推送目标"><option value="">选择推送目标</option></select><button class="button button-accent" id="test-push">发送测试消息</button></div>
+        <div><span class="section-index">04</span><h2>推送测试</h2><p>先选择目标；可测试文字消息、开播提醒图片卡片或单部动画更新卡片。</p></div>
+        <div class="test-push-controls"><select id="test-target" aria-label="选择测试推送目标"><option value="">选择推送目标</option></select><select id="test-item" aria-label="选择动画更新卡片作品"><option value="">选择动画</option></select></div>
+        <div class="test-push-controls"><button class="button button-quiet" id="test-push">消息测试</button><button class="button button-accent" id="test-reminder-card">开播提醒卡片</button><button class="button button-quiet" id="test-update-card">动画更新卡片</button></div>
         <div id="test-push-status" role="status"></div>
       </section>
-      <section class="remote-info"><span class="section-index">04</span><div><strong>WebUI 访问</strong><p id="remote-webui-status">远程 WebUI 地址读取中…</p><small>监听地址、端口和登录密码可在 AstrBot 插件配置中修改；AstrBot 内嵌管理页仍可使用。请勿将 HTTP 服务暴露到公网。</small></div><button class="button button-quiet" id="logout" type="button" hidden>退出登录</button></section>
+      <section class="remote-info"><span class="section-index">05</span><div><strong>WebUI 访问</strong><p id="remote-webui-status">远程 WebUI 地址读取中…</p><small>监听地址、端口和登录密码可在 AstrBot 插件配置中修改；AstrBot 内嵌管理页仍可使用。请勿将 HTTP 服务暴露到公网。</small></div><button class="button button-quiet" id="logout" type="button" hidden>退出登录</button></section>
     </section>
 
     <footer><span>排期仅代表来源记录，不等于视频实际上线。</span><span id="save-status"></span></footer>

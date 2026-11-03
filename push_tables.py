@@ -1,0 +1,164 @@
+from __future__ import annotations
+
+from calendar import monthrange
+from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
+from pathlib import Path
+from typing import Iterable
+from zoneinfo import ZoneInfo
+
+from PIL import Image, ImageDraw, ImageFont
+
+from .models import AnimeItem, Schedule
+from .time_utils import BJ, JST
+
+
+@dataclass(frozen=True)
+class Airing:
+    item: AnimeItem
+    schedule: Schedule | None
+    at: datetime
+
+
+def _first_occurrence(schedule: Schedule) -> datetime | None:
+    if not schedule.start_date:
+        return None
+    try:
+        day = date.fromisoformat(schedule.start_date[:10])
+    except ValueError:
+        return None
+    offset, minutes = divmod(schedule.hour * 60 + schedule.minute, 24 * 60)
+    local = datetime.combine(day + timedelta(days=offset), time(minutes // 60, minutes % 60), JST)
+    return local.astimezone(BJ)
+
+
+def airings_between(items: Iterable[AnimeItem], start: datetime, end: datetime) -> list[Airing]:
+    if start.tzinfo is None or end.tzinfo is None:
+        raise ValueError("start and end must be timezone-aware")
+    start, end = start.astimezone(BJ), end.astimezone(BJ)
+    rows: dict[tuple[str, datetime], Airing] = {}
+    for item in items:
+        if item.item_type in ("movie", "ova"):
+            continue
+        for schedule in item.schedules:
+            first = _first_occurrence(schedule)
+            if first is None:
+                # Date-less weekly records can still be placed into the requested calendar window.
+                local_start = start.astimezone(JST)
+                day_offset = (schedule.weekday - local_start.isoweekday()) % 7
+                candidate_day = local_start.date() + timedelta(days=day_offset)
+                local_minutes = (schedule.hour % 24) * 60 + schedule.minute
+                jst_dt = datetime.combine(candidate_day, time(local_minutes // 60, local_minutes % 60), JST)
+                if schedule.hour >= 24:
+                    jst_dt += timedelta(days=schedule.hour // 24)
+                first = jst_dt.astimezone(BJ)
+                interval = max(1, schedule.interval_days or 7)
+                while first < start:
+                    first += timedelta(days=interval)
+                candidate = first
+                while candidate < end:
+                    rows[(item.key, candidate)] = Airing(item, schedule, candidate)
+                    candidate += timedelta(days=interval)
+                continue
+            interval = max(1, schedule.interval_days or 7)
+            candidate = first
+            if candidate < start:
+                steps = max(0, (start.date() - candidate.date()).days // interval)
+                candidate += timedelta(days=steps * interval)
+                while candidate < start:
+                    candidate += timedelta(days=interval)
+            while candidate < end:
+                rows[(item.key, candidate)] = Airing(item, schedule, candidate)
+                candidate += timedelta(days=interval)
+    return sorted(rows.values(), key=lambda row: (row.at, row.item.title_cn or row.item.title))
+
+
+def _add_months(value: date, months: int) -> date:
+    month_index = value.year * 12 + (value.month - 1) + months
+    year, month = divmod(month_index, 12)
+    month += 1
+    return date(year, month, min(value.day, monthrange(year, month)[1]))
+
+
+def upcoming_movies(items: Iterable[AnimeItem], today: date, months: int = 3) -> list[Airing]:
+    end = _add_months(today, months)
+    rows = []
+    for item in items:
+        if item.item_type not in ("movie", "ova") or item.region not in ("jp", "mixed") or not item.release_date:
+            continue
+        try:
+            release = date.fromisoformat(item.release_date[:10])
+        except ValueError:
+            continue
+        if today <= release < end:
+            rows.append(Airing(item, None, datetime.combine(release, time.min, BJ)))
+    return sorted(rows, key=lambda row: (row.at, row.item.title_cn or row.item.title))
+
+
+def _font(size: int, bold: bool = False):
+    candidates = (
+        [
+            r"C:\Windows\Fonts\msyhbd.ttc",
+            "/system/fonts/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+        ]
+        if bold
+        else [
+            r"C:\Windows\Fonts\msyh.ttc",
+            "/system/fonts/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        ]
+    )
+    for path in candidates:
+        try:
+            return ImageFont.truetype(path, size=size)
+        except OSError:
+            continue
+    return ImageFont.load_default(size=size)
+
+
+def render_airings_image(title: str, rows: list[Airing], output: Path) -> Path:
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    width, margin = 1200, 64
+    row_height = 78
+    groups: list[tuple[str, list[Airing]]] = []
+    for row in rows:
+        label = row.at.strftime("%m月%d日 %A") if row.schedule is None else row.at.strftime("%m月%d日")
+        if not groups or groups[-1][0] != label:
+            groups.append((label, []))
+        groups[-1][1].append(row)
+    height = 285 + max(1, len(rows)) * row_height + len(groups) * 34 + 80
+    image = Image.new("RGB", (width, height), "#f3f1e9")
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((0, 0, width, 13), fill="#d66043")
+    draw.text((margin, 50), "ANIME / SCHEDULE", font=_font(18, True), fill="#65806c")
+    draw.text((margin, 87), title, font=_font(48, True), fill="#1c2d2b")
+    draw.text((margin, 157), f"北京时间  ·  共 {len(rows)} 部", font=_font(20), fill="#62716b")
+    draw.line((margin, 212, width - margin, 212), fill="#cbd1c6", width=2)
+    if not rows:
+        draw.text((margin, 270), "这段时间没有已知排期。", font=_font(28), fill="#5a6963")
+    y = 235
+    for label, grouped in groups:
+        draw.text((margin, y), label, font=_font(19, True), fill="#d15c41")
+        y += 34
+        for row in grouped:
+            item, schedule = row.item, row.schedule
+            time_text = row.at.strftime("%H:%M")
+            draw.rounded_rectangle((margin, y, width - margin, y + 64), radius=10, fill="#fffefa", outline="#d9ded4", width=1)
+            draw.text((margin + 18, y + 16), time_text, font=_font(23, True), fill="#334e41")
+            draw.text((margin + 150, y + 14), item.title_cn or item.title, font=_font(21, True), fill="#202e2b")
+            detail = item.title if item.title_cn and item.title_cn != item.title else ""
+            if schedule:
+                detail = f"{detail}   日本时间 {schedule.hour:02d}:{schedule.minute:02d} JST   来源：{'、'.join(item.sources)}".strip()
+            else:
+                detail = f"{detail}   {'OVA' if item.item_type == 'ova' else '剧场版'} / 上映日期".strip()
+            draw.text((margin + 150, y + 40), detail[:76], font=_font(14), fill="#78847d")
+            y += row_height
+    footer_y = height - 52
+    draw.line((margin, footer_y - 14, width - margin, footer_y - 14), fill="#d6dbd2", width=1)
+    draw.text((margin, footer_y), "排期来自公开资料，仅供参考；临时改期或延期以官方公告为准。", font=_font(13), fill="#818c85")
+    image.save(output, format="PNG", optimize=True)
+    return output

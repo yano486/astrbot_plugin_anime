@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>动画订阅</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">SEASONAL ANIME / SCHEDULE</p>
+        <h1>本季，<em>按时相见。</em></h1>
+        <p class="lede">筛选作品，勾选订阅；提醒时间按北京时间计算。</p>
+      </div>
+      <div class="mast-actions">
+        <select id="season" aria-label="选择季度"></select>
+        <button class="button button-dark" id="refresh">刷新番表</button>
+      </div>
+    </header>
+
+    <section class="statusbar">
+      <div><span class="live-dot"></span><span id="refresh-status">正在连接 AstrBot…</span></div>
+      <div id="source-status" class="source-status"></div>
+    </section>
+
+    <section class="toolbar">
+      <label class="search"><span>⌕</span><input id="query" type="search" placeholder="搜索标题、别名或题材"></label>
+      <select id="region"><option value="jp" selected>日本动画</option><option value="">所有地区</option><option value="mixed">多地区/合拍</option><option value="unknown">待确认</option></select>
+      <select id="type"><option value="">所有类型</option><option value="tv">TV</option><option value="web">WEB</option><option value="ova">OVA</option><option value="movie">剧场版</option></select>
+      <select id="weekday"><option value="">所有星期</option><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option></select>
+      <select id="role"><option value="">新作与续播</option><option value="new">新作</option><option value="continuing">跨季续播</option></select>
+      <select id="source"><option value="">所有来源</option></select>
+    </section>
+
+    <section class="target-row">
+      <label for="target">提醒发送到</label>
+      <select id="target"><option value="">选择已绑定的群或会话</option></select>
+      <span>先在机器人会话中执行 <code>/anime绑定</code></span>
+      <button class="button button-quiet" id="load-subs">读取订阅</button>
+      <button class="button button-accent" id="save-subs">保存所选订阅</button>
+    </section>
+
+    <section class="whitelist-panel">
+      <div class="whitelist-heading"><div><span class="section-index">02</span><strong>推送白名单</strong><small>启用作品订阅会自动加入；移出白名单后停止自动推送。</small></div><button class="button button-quiet" id="save-whitelist">保存白名单</button></div>
+      <div id="whitelist-list" class="whitelist-list"></div>
+    </section>
+
+    <section class="catalog-head">
+      <div><span class="section-index">01</span><h2>季度片单</h2><span id="count" class="count"></span></div>
+      <div class="legend"><span><i class="badge badge-new">新作</i></span><span><i class="badge badge-cont">续播</i></span><span class="muted">来源时间冲突的作品暂不触发提醒</span></div>
+    </section>
+    <section id="catalog" class="catalog" aria-live="polite"></section>
+    <footer><span>排期仅代表来源记录，不等于视频实际上线。</span><span id="save-status"></span></footer>
+  </main>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

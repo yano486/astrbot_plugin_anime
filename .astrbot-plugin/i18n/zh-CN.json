@@ -1,0 +1,11 @@
+{
+  "metadata": {
+    "name": "季度动画订阅与提醒"
+  },
+  "views": {
+    "management": {
+      "title": "动画订阅",
+      "description": "浏览季度动画、管理订阅和开播提醒。"
+    }
+  }
+}

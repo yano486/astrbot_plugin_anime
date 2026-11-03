@@ -1,0 +1,13 @@
+name: astrbot_plugin_anime
+display_name: 动画季度订阅
+desc: 汇总季度日本动画与播出时间，支持 WebUI 按作品订阅并推送开播提醒。
+version: 0.1.0
+author: Aut-sep
+repo: https://github.com/yano486/astrbot_plugin_anime
+category: entertainment
+support_platforms:
+  - aiocqhttp
+tags:
+  - 动画
+  - 番剧
+  - 订阅

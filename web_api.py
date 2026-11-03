@@ -128,6 +128,7 @@ class AnimeWebAPI:
                     "movie_sources": self.plugin.store.state.get("movie_source_status", {}),
                     "remote_webui_url": self.plugin.remote_webui_url,
                     "remote_webui_enabled": self.plugin.remote_webui_enabled,
+                    "remote_webui_password_enabled": bool(getattr(self.plugin, "remote_webui_password_enabled", False)),
                 }
             if endpoint == "items":
                 season = query.get("season", self.plugin.current_season())

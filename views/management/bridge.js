@@ -8,6 +8,7 @@
       ...options,
     });
     const value = await response.json().catch(() => ({}));
+    if (response.status === 401 && path !== "login") window.location.replace("/");
     if (!response.ok) throw new Error(value.error || `HTTP ${response.status}`);
     return value;
   }

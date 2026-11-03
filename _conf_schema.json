@@ -2,26 +2,33 @@
   "remote_webui_enabled": {
     "type": "bool",
     "default": true,
-    "description": "启用独立远程 WebUI；推荐使用 WebUI 管理订阅。AstrBot 内嵌管理页面始终保留。"
+    "description": "远程 WebUI",
+    "hint": "开启后可从局域网浏览器访问独立管理页；推荐使用 WebUI 管理订阅。AstrBot 内嵌管理页仍然保留。"
   },
   "remote_webui_host": {
     "type": "string",
     "default": "0.0.0.0",
-    "description": "远程 WebUI 监听地址；0.0.0.0 允许局域网访问。"
+    "description": "监听地址",
+    "hint": "默认 0.0.0.0，允许局域网设备访问；只建议在可信局域网内开放。"
   },
   "remote_webui_port": {
     "type": "int",
     "default": 1876,
-    "description": "远程 WebUI 端口（四位数）；修改后需重启插件。HTTP 仅建议在可信局域网使用，勿暴露到公网。"
+    "description": "访问端口",
+    "hint": "默认 1876。修改后需重启插件；请勿将 HTTP 服务映射到公网。"
   },
   "remote_webui_password": {
     "type": "string",
     "default": "",
-    "description": "远程 WebUI Basic Auth 口令，用户名固定为 anime，至少 12 个字符；未配置时远程服务不会启动。HTTP 不要经公网暴露。"
+    "description": "登录密码",
+    "hint": "留空时无需登录；设置后访问页面会显示内嵌登录框。密码为 1-8 位数字。无密码模式下，同一网络内能访问端口的设备均可管理插件。",
+    "secret": true
   },
   "bangumi_api_token": {
     "type": "string",
     "default": "",
-    "description": "可选 Bangumi API Token；留空仍使用公开 API。修改后刷新番表即可生效。"
+    "description": "Bangumi API Token",
+    "hint": "可选。填写后用于 Bangumi API 请求以降低限流影响；留空仍使用公开 API。修改后刷新番表生效。",
+    "secret": true
   }
 }

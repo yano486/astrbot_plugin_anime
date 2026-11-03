@@ -21,12 +21,13 @@ from .push_tables import Airing, airings_between, render_airings_image, render_w
 from .time_utils import BJ
 
 
-@register("astrbot_plugin_anime", "Aut-sep", "日本动画季度订阅和排期提醒", "0.2.0")
+@register("astrbot_plugin_anime", "Aut-sep", "日本动画季度订阅和排期提醒", "0.2.1")
 class AnimePlugin(Star):
     def __init__(self, context: Context, config=None):
         super().__init__(context)
         self.config = config or {}
         self.remote_webui_enabled = False
+        self.remote_webui_password_enabled = False
         self.remote_webui_url = ""
         self._remote_runner = None
         data_dir = Path(StarTools.get_data_dir())
@@ -74,14 +75,22 @@ class AnimePlugin(Star):
             await self._remote_runner.cleanup()
             self._remote_runner = None
             self.remote_webui_enabled = False
+            self.remote_webui_password_enabled = False
 
     async def _start_remote_webui(self) -> None:
         if not bool(self.config.get("remote_webui_enabled", True)):
             return
-        password = str(self.config.get("remote_webui_password", ""))
-        if len(password) < 12:
-            logger.warning("[anime] 远程 WebUI 未启动：请在插件配置中设置至少 12 个字符的访问口令。")
+        configured_password = self.config.get("remote_webui_password", "")
+        password = "" if configured_password is None else str(configured_password)
+        from .web_server import create_remote_web_app, validate_remote_password
+
+        try:
+            password = validate_remote_password(password)
+        except ValueError as exc:
+            logger.error(f"[anime] 远程 WebUI 未启动：{exc}；请清空密码或设置 1-8 位数字。")
             return
+        if not password:
+            logger.warning("[anime] 远程 WebUI 未设置密码，将允许访问端口的局域网设备直接管理。请勿暴露到公网。")
         host = str(self.config.get("remote_webui_host", "0.0.0.0")).strip() or "0.0.0.0"
         try:
             port = int(self.config.get("remote_webui_port", 1876))
@@ -92,7 +101,6 @@ class AnimePlugin(Star):
             logger.error("[anime] 远程 WebUI 端口必须在 1-65535 之间。")
             return
         from aiohttp import web
-        from .web_server import create_remote_web_app
 
         runner = web.AppRunner(create_remote_web_app(self, password), access_log=None)
         await runner.setup()
@@ -105,12 +113,13 @@ class AnimePlugin(Star):
             return
         self._remote_runner = runner
         self.remote_webui_enabled = True
+        self.remote_webui_password_enabled = bool(password)
         self.remote_webui_url = (
             f"监听 {host}:{port}；请用设备局域网 IP 访问 http://<设备局域网IP>:{port}"
             if host == "0.0.0.0"
             else f"http://{host}:{port}"
         )
-        logger.info(f"[anime] 远程 WebUI 已启动：{self.remote_webui_url}（HTTP Basic Auth，勿暴露到公网）")
+        logger.info(f"[anime] 远程 WebUI 已启动：{self.remote_webui_url}")
 
     async def _refresh_quietly(self) -> None:
         try:

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>登录 · 动画订阅</title>
+  <link rel="stylesheet" href="./login.css">
+</head>
+<body>
+  <main class="login-shell">
+    <section class="login-card" aria-labelledby="login-title">
+      <p class="eyebrow">ANIME / SCHEDULE</p>
+      <h1 id="login-title">动画订阅<span>管理入口</span></h1>
+      <p class="lede">输入插件设置中的登录密码，继续管理片单与推送。</p>
+      <form id="login-form">
+        <label for="password">登录密码</label>
+        <input id="password" name="password" type="password" inputmode="numeric" autocomplete="current-password" maxlength="8" pattern="[0-9]{1,8}" required autofocus>
+        <p id="login-error" class="login-error" role="alert" hidden></p>
+        <button id="login-button" type="submit">登录</button>
+      </form>
+      <p class="footnote">密码在插件设置中留空时，无需登录即可访问。</p>
+    </section>
+    <span class="orbit orbit-one" aria-hidden="true"></span>
+    <span class="orbit orbit-two" aria-hidden="true"></span>
+  </main>
+  <script src="./login.js"></script>
+</body>
+</html>

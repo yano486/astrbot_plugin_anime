@@ -186,9 +186,10 @@ async function loadItems() {
 async function loadStatus() {
   const data = await bridge.apiGet("status");
   state.sources = data.sources || {}; state.movieSources = data.movie_sources || {}; renderSources();
+  $("#logout").hidden = !data.remote_webui_password_enabled;
   $("#remote-webui-status").textContent = data.remote_webui_enabled
-    ? `${data.remote_webui_url} · 已启动`
-    : "未启动。请在 AstrBot 插件配置中启用远程 WebUI，并设置至少 12 个字符的访问口令。";
+    ? `${data.remote_webui_url} · ${data.remote_webui_password_enabled ? "密码保护已开启" : "未设置密码，局域网内可直接访问"}`
+    : "未启动。请检查 AstrBot 插件中的远程 WebUI 开关、监听地址、端口及登录密码设置。";
   if (data.updated_at) $("#refresh-status").textContent = `数据更新于 ${new Date(data.updated_at).toLocaleString()}`;
 }
 
@@ -249,6 +250,11 @@ async function sendTestPush() {
   }
 }
 
+async function logout() {
+  await bridge.apiPost("logout", {});
+  window.location.replace("/");
+}
+
 async function refreshAll() {
   $("#refresh").disabled = true; $("#refresh-status").textContent = "正在刷新多个来源…";
   try { await bridge.apiPost("refresh", {season: $("#season").value}); await loadStatus(); await loadItems(); $("#save-status").textContent = "刷新完成"; }
@@ -266,6 +272,7 @@ async function init() {
     $("#save-subs").addEventListener("click", saveSubscriptions);
     $("#save-whitelist").addEventListener("click", saveWhitelist);
     $("#test-push").addEventListener("click", sendTestPush);
+    $("#logout").addEventListener("click", logout);
     $("#show-catalog").addEventListener("click", () => showView("catalog"));
     $("#show-settings").addEventListener("click", () => showView("settings"));
     await Promise.all([loadStatus(), loadTargets(), loadItems()]);

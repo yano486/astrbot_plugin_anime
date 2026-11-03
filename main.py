@@ -21,7 +21,10 @@ from .push_tables import Airing, airings_between, render_airings_image, render_w
 from .time_utils import BJ, JST
 
 
-@register("astrbot_plugin_anime", "Aut-sep", "日本动画季度订阅和排期提醒", "0.2.1")
+PLUGIN_VERSION = "0.2.2"
+
+
+@register("astrbot_plugin_anime", "Aut-sep", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)
 class AnimePlugin(Star):
     def __init__(self, context: Context, config=None):
         super().__init__(context)

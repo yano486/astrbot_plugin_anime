@@ -18,17 +18,20 @@ class Element {
   get innerHTML() { return this.html || ''; }
   append(value) { this.children.push(value); }
   replaceChildren(...values) { this.children = values; }
+  setAttribute(name, value) { this[name] = value; }
   addEventListener() {}
 }
 
-function setup(apiGet, apiPost = async () => ({})) {
+function setup(apiGet, apiPost = async () => ({}), options = {}) {
   const elements = new Map();
   const getElement = name => {
     if (!elements.has(name)) elements.set(name, new Element());
     return elements.get(name);
   };
+  const window = { AstrBotPluginView: { ready: () => new Promise(() => {}), apiGet, apiPost }, localStorage: { getItem: () => null, setItem() {} } };
+  if (options.withLocalStorage === false) delete window.localStorage;
   const sandbox = vm.createContext({
-    window: { AstrBotPluginView: { ready: () => new Promise(() => {}), apiGet, apiPost }, localStorage: { getItem: () => null, setItem() {} } },
+    window,
     document: { querySelector: getElement, createElement: () => new Element(), querySelectorAll: () => [], documentElement: { dataset: {} } },
     console, Date, Map, Set,
   });
@@ -80,6 +83,12 @@ test('Japan display preference keeps the Japanese weekday and clock', () => {
   const app = setup(async () => ({}));
   const text = app.run('firstTime({schedules:[{weekday:1,hour:23,minute:0}]}, "Asia/Tokyo")');
   assert.match(text, /日本 周一 23:00/);
+});
+
+test('embedded management view works when sandbox blocks localStorage', () => {
+  const app = setup(async () => ({}), async () => ({}), { withLocalStorage: false });
+  assert.doesNotThrow(() => app.run('setTheme("dark")'));
+  assert.equal(app.run('document.documentElement.dataset.theme'), 'dark');
 });
 
 test('year options omit invalid dates and include every catalog year', () => {
@@ -152,6 +161,13 @@ test('settings page exposes whitelist, test-push, and remote WebUI status', () =
   assert.match(markup, /id="test-reminder-card"/);
   assert.match(markup, /id="test-update-card"/);
   assert.match(markup, /id="toggle-theme"/);
+  assert.match(source, /removeWhitelist/);
+  assert.match(source, /class="button button-quiet remove-whitelist"/);
+});
+
+test('catalog fetch action is labelled as getting the schedule', () => {
+  assert.match(markup, /id="refresh"[^>]*>获取番表</);
+  assert.doesNotMatch(markup, /id="refresh"[^>]*>刷新番表</);
 });
 
 test('catalog navigation and headings use subscription wording and settings owns push tests', () => {

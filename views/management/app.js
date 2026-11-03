@@ -223,7 +223,7 @@ async function resetMovieRelease(item, card) {
 async function loadItems(refreshYear = false) {
   const requestedMode = state.periodMode;
   const requestedPeriod = $("#period").value;
-  $("#refresh-status").textContent = requestedMode === "year" && refreshYear ? `正在读取 ${requestedPeriod} 年多个季度…` : "正在读取作品目录…";
+  $("#refresh-status").textContent = requestedMode === "year" && refreshYear ? `正在获取 ${requestedPeriod} 年多个季度…` : "正在获取作品目录…";
   if (requestedMode === "year" && refreshYear) {
     await bridge.apiPost("refresh", {season: requestedPeriod});
     if (requestedMode !== state.periodMode || requestedPeriod !== $("#period").value) return;
@@ -245,7 +245,7 @@ async function loadItems(refreshYear = false) {
     if (state.items.some(item => item.key === oldItem)) itemSelect.value = oldItem;
     window.AnimeControls?.refresh(itemSelect);
   }
-  $("#refresh-status").textContent = `已载入 ${result.count || 0} 部 · ${result.updated_at || "尚未刷新"}`;
+  $("#refresh-status").textContent = `已载入 ${result.count || 0} 部 · ${result.updated_at || "尚未获取"}`;
 }
 
 async function loadStatus() {
@@ -282,9 +282,22 @@ async function loadTargets() {
   const list = $("#whitelist-list"); list.replaceChildren();
   state.targets.filter(target => target.enabled).forEach(target => {
     const label = document.createElement("label"); label.className = "whitelist-target";
-    label.innerHTML = `<input type="checkbox" data-target="${safe(target.target_id)}" ${target.whitelisted ? "checked" : ""}> ${safe(target.display_name || target.target_id)}${target.subscribed ? " · 自动推送已启用" : ""}`;
+    label.innerHTML = `<input type="checkbox" data-target="${safe(target.target_id)}" ${target.whitelisted ? "checked" : ""}> <span>${safe(target.display_name || target.target_id)}${target.subscribed ? " · 自动推送已启用" : ""}</span><button class="button button-quiet remove-whitelist" type="button" title="移出白名单">移除</button>`;
+    label.addEventListener("click", event => {
+      if (event.target.closest?.(".remove-whitelist")) removeWhitelist(event);
+    });
     list.append(label);
   });
+}
+
+function removeWhitelist(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const label = event.target.closest?.(".whitelist-target");
+  const checkbox = label?.querySelector("input[type=checkbox]");
+  if (!checkbox) return;
+  checkbox.checked = false;
+  saveWhitelist();
 }
 
 async function loadSubscriptions() {
@@ -371,7 +384,7 @@ async function savePreferences() {
     const result = await bridge.apiPost("preferences", values);
     state.preferences = result.preferences;
     applyPreferences();
-    $("#save-status").textContent = "排期与时区设置已保存。刷新番表后应用新的排期来源。";
+    $("#save-status").textContent = "排期与时区设置已保存。获取番表后应用新的排期来源。";
   } catch (error) {
     $("#save-status").textContent = `设置保存失败：${error.message}`;
   }
@@ -379,10 +392,14 @@ async function savePreferences() {
 
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
-  window.localStorage.setItem("anime-management-theme", theme);
+  try { window.localStorage?.setItem("anime-management-theme", theme); } catch {}
   const button = $("#toggle-theme");
   button.textContent = theme === "dark" ? "切换亮色" : "切换暗色";
   button.setAttribute("aria-pressed", String(theme === "dark"));
+}
+
+function storedTheme() {
+  try { return window.localStorage?.getItem("anime-management-theme") || ""; } catch { return ""; }
 }
 
 async function logout() {
@@ -391,14 +408,14 @@ async function logout() {
 }
 
 async function refreshAll() {
-  $("#refresh").disabled = true; $("#refresh-status").textContent = "正在刷新多个来源…";
+  $("#refresh").disabled = true; $("#refresh-status").textContent = "正在获取多个来源…";
   try {
     await bridge.apiPost("refresh", {season: $("#period").value});
     await loadStatus();
     await loadItems();
-    $("#save-status").textContent = "刷新完成";
+    $("#save-status").textContent = "获取完成";
   }
-  catch (error) { $("#refresh-status").textContent = `刷新失败：${error.message}`; }
+  catch (error) { $("#refresh-status").textContent = `获取失败：${error.message}`; }
   finally { $("#refresh").disabled = false; }
 }
 
@@ -407,7 +424,7 @@ async function init() {
     await bridge.ready();
     configurePeriodControl();
     window.AnimeControls?.enhanceAll();
-    setTheme(window.localStorage.getItem("anime-management-theme") === "dark" ? "dark" : "light");
+    setTheme(storedTheme() === "dark" ? "dark" : "light");
     for (const id of ["query", "region", "weekday", "role", "source"]) $("#" + id).addEventListener(id === "query" ? "input" : "change", render);
     $("#type").addEventListener("change", () => { configurePeriodControl(); loadItems(state.periodMode === "year"); });
     $("#period").addEventListener("change", () => {

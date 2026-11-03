@@ -20,6 +20,10 @@ class FakeAdapter:
 
 
 class RefreshTests(unittest.TestCase):
+    def test_default_adapters_pause_acgsecrets_and_youranimes(self) -> None:
+        service = RefreshService(None, JsonStore(Path("unused.json")))
+        self.assertEqual({adapter.name for adapter in service.adapters}, {"bangumi", "bgmlist", "yuc"})
+
     def test_keeps_last_source_schedule_when_that_source_fails(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store = JsonStore(Path(directory) / "state.json")
@@ -37,6 +41,27 @@ class RefreshTests(unittest.TestCase):
             self.assertEqual(len(result["items"]), 0)
             self.assertEqual(len(store.get_items()), 1)
             self.assertEqual(store.state["source_status"]["youranimes"]["status"], "error")
+
+    def test_failed_source_schedule_is_retained_but_unified_to_earliest_time(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = JsonStore(Path(directory) / "state.json")
+            store.set_items([AnimeItem(
+                key="bangumi:2", title="Test", season="2026-10", sources=["yuc"],
+                schedules=[Schedule(1, 1, 40, "01:40", "yuc")], data_status="ok",
+            )])
+            current = SourceRecord(
+                source="bangumi", title="Test", bangumi_id=2, region="jp",
+                schedules=[Schedule(1, 1, 30, "01:30", "bangumi")],
+            )
+            service = RefreshService(None, store, [
+                FakeAdapter(SourceResult("bangumi", [current])),
+                FakeAdapter(SourceResult("yuc", status="error", error="temporary")),
+            ])
+            asyncio.run(service.refresh("2026-10"))
+            item = store.get_items()[0]
+            self.assertEqual(len(item.schedules), 1)
+            self.assertEqual((item.schedules[0].hour, item.schedules[0].minute), (1, 30))
+            self.assertIn("01:40", item.schedule_note)
 
 
 if __name__ == "__main__":

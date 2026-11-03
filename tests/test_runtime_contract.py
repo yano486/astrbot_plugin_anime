@@ -18,6 +18,10 @@ class RuntimeContractTests(unittest.IsolatedAsyncioTestCase):
         for field in schema.values():
             self.assertIsInstance(field, dict)
             self.assertIn("type", field)
+        self.assertEqual(schema["remote_webui_host"]["default"], "0.0.0.0")
+        self.assertEqual(schema["remote_webui_port"]["default"], 1876)
+        self.assertIn("remote_webui_password", schema)
+        self.assertIn("bangumi_api_token", schema)
 
     async def test_sub_registers_and_whitelists_before_works_are_chosen(self):
         from astrbot_plugin_anime.main import AnimePlugin
@@ -57,3 +61,15 @@ class RuntimeContractTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(ValueError):
                 JsonStore(path)
             self.assertEqual(path.read_text(encoding="utf-8"), "{broken")
+
+    def test_old_catalog_with_retired_sources_is_refreshed_after_upgrade(self):
+        from astrbot_plugin_anime.main import AnimePlugin
+        from astrbot_plugin_anime.models import AnimeItem
+
+        with tempfile.TemporaryDirectory() as directory:
+            plugin = object.__new__(AnimePlugin)
+            plugin.store = JsonStore(Path(directory) / "state.json")
+            plugin.store.state["season"] = plugin.current_season()
+            plugin.store.state["source_status"] = {name: {} for name in ("bangumi", "bgmlist", "yuc")}
+            plugin.store.set_items([AnimeItem("old", "Old", sources=["acgsecrets", "yuc"])])
+            self.assertTrue(plugin._season_catalog_needs_refresh())

@@ -22,6 +22,23 @@ class WebValidationTests(unittest.TestCase):
         self.assertEqual(values[0].target_id, "x")
         self.assertEqual(values[0].lead_minutes, 30)
 
+    def test_movie_subscription_uses_standard_reminder_without_custom_push_time(self) -> None:
+        payload = {"target_id": "x", "subscriptions": [{"anime_key": "movie:1", "lead_minutes": 120, "on_time": True}]}
+        values = validate_subscriptions(payload, {"x"}, {"movie:1"}, {"movie:1"})
+        self.assertEqual(values[0].lead_minutes, 30)
+        self.assertFalse(values[0].on_time)
+
+    def test_movie_release_datetime_requires_a_real_catalog_item_and_datetime(self) -> None:
+        from astrbot_plugin_anime.web_api import validate_movie_release
+
+        key, release_at = validate_movie_release({"anime_key": "movie:1", "release_at": "2027-04-10T18:30"}, {"movie:1"})
+        self.assertEqual((key, release_at), ("movie:1", "2027-04-10T18:30"))
+        with self.assertRaisesRegex(ValueError, "unknown anime_key"):
+            validate_movie_release({"anime_key": "unknown", "release_at": "2027-04-10T18:30"}, {"movie:1"})
+        with self.assertRaisesRegex(ValueError, "release_at"):
+            validate_movie_release({"anime_key": "movie:1", "release_at": "bad"}, {"movie:1"})
+        self.assertEqual(validate_movie_release({"anime_key": "movie:1", "release_at": ""}, {"movie:1"}), ("movie:1", ""))
+
     def test_whitelist_change_requires_an_existing_bound_target(self) -> None:
         from astrbot_plugin_anime.web_api import validate_whitelist_updates
 

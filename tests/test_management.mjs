@@ -4,6 +4,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('../views/management/app.js', import.meta.url), 'utf8');
+const markup = readFileSync(new URL('../views/management/index.html', import.meta.url), 'utf8');
 
 class Element {
   value = '';
@@ -70,4 +71,22 @@ test('Monday 00:30 Japan displays Sunday 23:30 Beijing', () => {
   const app = setup(async () => ({}));
   const text = app.run('firstTime({schedules:[{weekday:1,hour:0,minute:30}]})');
   assert.match(text, /北京 周日 23:30/);
+});
+
+test('touch filters keep a visible field label outside the native select value', () => {
+  assert.match(markup, /class="filter-control"><span>地区<\/span><select id="region"/);
+  assert.match(markup, /class="filter-control"><span>星期<\/span><select id="weekday"/);
+});
+
+test('settings page exposes whitelist, test-push, and remote WebUI status', () => {
+  assert.match(markup, /id="show-settings"/);
+  assert.match(markup, /id="save-whitelist"/);
+  assert.match(markup, /id="test-push"/);
+  assert.match(markup, /id="remote-webui-status"/);
+});
+
+test('catalog cards make Bangumi covers links and let other card areas toggle selection', () => {
+  assert.match(source, /class="cover-link"/);
+  assert.match(source, /event\.target\.closest\("a, input, button, select, label"\)/);
+  assert.match(source, /updateSelected\(\)/);
 });

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime, time, timedelta
+from dataclasses import replace
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -11,20 +12,23 @@ from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, MessageChain, filter
 from astrbot.api.star import Context, Star, StarTools, register
 
-from .models import Subscription, Target
+from .models import Target
 from .scheduler import ReminderScheduler
 from .services import RefreshService
 from .store import JsonStore
 from .web_api import AnimeWebAPI
-from .push_tables import airings_between, render_airings_image
+from .push_tables import Airing, airings_between, render_airings_image, render_weekly_image, upcoming_movies
 from .time_utils import BJ
 
 
-@register("astrbot_plugin_anime", "Aut-sep", "日本动画季度订阅和排期提醒", "0.1.0")
+@register("astrbot_plugin_anime", "Aut-sep", "日本动画季度订阅和排期提醒", "0.2.0")
 class AnimePlugin(Star):
     def __init__(self, context: Context, config=None):
         super().__init__(context)
         self.config = config or {}
+        self.remote_webui_enabled = False
+        self.remote_webui_url = ""
+        self._remote_runner = None
         data_dir = Path(StarTools.get_data_dir())
         self.data_dir = data_dir
         self.store = JsonStore(data_dir / "anime_state.json")
@@ -43,12 +47,17 @@ class AnimePlugin(Star):
 
     async def initialize(self) -> None:
         self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=25))
-        self.refresh_service = RefreshService(self.session, self.store)
+        self.refresh_service = RefreshService(
+            self.session,
+            self.store,
+            bangumi_token=str(self.config.get("bangumi_api_token", "")),
+        )
         self.web_api.register()
+        await self._start_remote_webui()
         self.scheduler = ReminderScheduler(self.store, self._deliver)
         await self.scheduler.start()
         self._refresh_task = asyncio.create_task(self._refresh_periodically())
-        if self.store.state.get("season") != self.current_season():
+        if self._season_catalog_needs_refresh() or self._movie_catalog_needs_refresh():
             self._initial_refresh = asyncio.create_task(self._refresh_quietly())
 
     async def terminate(self) -> None:
@@ -61,10 +70,54 @@ class AnimePlugin(Star):
             await asyncio.gather(*tasks, return_exceptions=True)
         if self.session and not self.session.closed:
             await self.session.close()
+        if self._remote_runner:
+            await self._remote_runner.cleanup()
+            self._remote_runner = None
+            self.remote_webui_enabled = False
+
+    async def _start_remote_webui(self) -> None:
+        if not bool(self.config.get("remote_webui_enabled", True)):
+            return
+        password = str(self.config.get("remote_webui_password", ""))
+        if len(password) < 12:
+            logger.warning("[anime] 远程 WebUI 未启动：请在插件配置中设置至少 12 个字符的访问口令。")
+            return
+        host = str(self.config.get("remote_webui_host", "0.0.0.0")).strip() or "0.0.0.0"
+        try:
+            port = int(self.config.get("remote_webui_port", 1876))
+        except (TypeError, ValueError):
+            logger.error("[anime] 远程 WebUI 端口无效。")
+            return
+        if not 1 <= port <= 65535:
+            logger.error("[anime] 远程 WebUI 端口必须在 1-65535 之间。")
+            return
+        from aiohttp import web
+        from .web_server import create_remote_web_app
+
+        runner = web.AppRunner(create_remote_web_app(self, password), access_log=None)
+        await runner.setup()
+        site = web.TCPSite(runner, host, port)
+        try:
+            await site.start()
+        except OSError as exc:
+            await runner.cleanup()
+            logger.error(f"[anime] 远程 WebUI 启动失败（{host}:{port}）：{exc}")
+            return
+        self._remote_runner = runner
+        self.remote_webui_enabled = True
+        self.remote_webui_url = (
+            f"监听 {host}:{port}；请用设备局域网 IP 访问 http://<设备局域网IP>:{port}"
+            if host == "0.0.0.0"
+            else f"http://{host}:{port}"
+        )
+        logger.info(f"[anime] 远程 WebUI 已启动：{self.remote_webui_url}（HTTP Basic Auth，勿暴露到公网）")
 
     async def _refresh_quietly(self) -> None:
         try:
-            await self.refresh_service.refresh(self.current_season())
+            if self._season_catalog_needs_refresh():
+                await self.refresh_service.refresh(self.current_season())
+            if self._movie_catalog_needs_refresh():
+                await self.refresh_service.refresh_movies(datetime.now(BJ).date())
         except Exception as exc:
             logger.warning(f"[anime] 初始刷新失败: {exc}")
 
@@ -73,8 +126,39 @@ class AnimePlugin(Star):
             await asyncio.sleep(6 * 60 * 60)
             try:
                 await self.refresh_service.refresh(self.current_season())
+                if self._movie_catalog_needs_refresh():
+                    await self.refresh_service.refresh_movies(datetime.now(BJ).date())
             except Exception as exc:
                 logger.warning(f"[anime] 定时刷新失败: {exc}")
+
+    def _movie_catalog_needs_refresh(self) -> bool:
+        today = datetime.now(BJ).date()
+        last_year = today.year + (1 if today.month == 12 else 0)
+        expected_scope = f"{today.year}-{last_year}"
+        if self.store.state.get("movie_catalog_scope") != expected_scope:
+            return True
+        updated = self.store.state.get("movie_catalog_updated_at", "")
+        try:
+            refreshed_at = datetime.fromisoformat(updated)
+        except (TypeError, ValueError):
+            return True
+        if refreshed_at.tzinfo is None:
+            refreshed_at = refreshed_at.replace(tzinfo=BJ)
+        return (datetime.now(BJ) - refreshed_at.astimezone(BJ)).total_seconds() >= 24 * 60 * 60
+
+    def _season_catalog_needs_refresh(self) -> bool:
+        if self.store.state.get("season") != self.current_season():
+            return True
+        expected_sources = {"bangumi", "bgmlist", "yuc"}
+        if set(self.store.state.get("source_status", {})) != expected_sources:
+            return True
+        retired_sources = {"acgsecrets", "youranimes"}
+        return any(
+            retired_sources.intersection(item.sources)
+            or len(item.schedules) > 1
+            or item.data_status == "conflict"
+            for item in self.store.get_items()
+        )
 
     async def _deliver(self, target_id: str, text: str) -> bool:
         chain = MessageChain().message(text)
@@ -115,7 +199,8 @@ class AnimePlugin(Star):
 
         path = self.data_dir / "push_tables" / f"{uuid4().hex}.png"
         try:
-            await asyncio.to_thread(render_airings_image, title, rows, path)
+            renderer = render_weekly_image if title == "本周动画播放表" else render_airings_image
+            await asyncio.to_thread(renderer, title, rows, path)
         except Exception as exc:
             logger.error(f"[anime] 图表生成失败: {exc}")
             return event.plain_result(f"图片表生成失败：{exc}")
@@ -164,15 +249,42 @@ class AnimePlugin(Star):
             yield event.plain_result(message + "关闭请用 /anime sub off 或 /anime 订阅 关闭。")
             return
 
-        all_items = [item for item in self.store.get_items() if item.region in ("jp", "mixed")]
         now = datetime.now(BJ)
         if action_name == "ova":
-            rows, source_result = await self.refresh_service.upcoming_movies(now.date(), months=3)
-            if source_result.status == "error" and not rows:
-                yield event.plain_result(f"剧场版/OVA 数据暂不可用：{source_result.error}")
+            target_id = getattr(event, "unified_msg_origin", None)
+            if not target_id:
+                yield event.plain_result("无法识别当前会话，请先在机器人会话中执行 /anime绑定。")
                 return
-            yield await self._send_airings_image(event, "近三个月剧场版与OVA", rows)
+            movie_items = {item.key: item for item in self.store.get_movie_items()}
+            selected_keys = {
+                sub.anime_key for sub in self.store.get_subscriptions(target_id)
+                if sub.enabled and sub.anime_key in movie_items
+            }
+            if not selected_keys:
+                yield event.plain_result("当前会话尚未在 WebUI 选择剧场版/OVA；请在片单筛选中选好后保存订阅。")
+                return
+            selected_items = []
+            override_times = {}
+            for key in selected_keys:
+                item = movie_items[key]
+                override = self.store.get_movie_release_override(key)
+                if override:
+                    try:
+                        parsed = datetime.fromisoformat(override)
+                        parsed = parsed.replace(tzinfo=BJ) if parsed.tzinfo is None else parsed.astimezone(BJ)
+                        item = replace(item, release_date=parsed.date().isoformat())
+                        override_times[key] = parsed
+                    except ValueError:
+                        pass
+                selected_items.append(item)
+            rows = upcoming_movies(selected_items, now.date())
+            adjusted = []
+            for row in rows:
+                adjusted.append(Airing(movie_items[row.item.key], None, override_times.get(row.item.key, row.at)))
+            yield await self._send_airings_image(event, "已选剧场版与OVA上映表", adjusted)
             return
+
+        all_items = [item for item in self.store.get_items() if item.region in ("jp", "mixed")]
 
         if action_name == "push":
             start = datetime.combine(now.date(), time.min, BJ)
@@ -189,7 +301,7 @@ class AnimePlugin(Star):
     @filter.command("anime帮助")
     async def help(self, event: AstrMessageEvent):
         yield event.plain_result(
-            "主要命令：/anime push（今日播放表）、/anime week（本周播放表）、/anime ova（近三个月剧场版/OVA）、/anime sub（开启自动推送）。\n"
+            "主要命令：/anime push（今日播放表）、/anime week（本周播放表）、/anime ova（已选剧场版/OVA上映表）、/anime sub（开启自动推送）。\n"
             "后缀也支持中文：推送、本周、剧场版、订阅。\n"
             "/anime绑定 - 绑定当前群/会话为 WebUI 推送目标\n"
             "/anime解绑 - 解绑当前目标\n"

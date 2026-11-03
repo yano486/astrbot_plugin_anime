@@ -1,1 +1,27 @@
-{}
+{
+  "remote_webui_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "启用独立远程 WebUI；推荐使用 WebUI 管理订阅。AstrBot 内嵌管理页面始终保留。"
+  },
+  "remote_webui_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "远程 WebUI 监听地址；0.0.0.0 允许局域网访问。"
+  },
+  "remote_webui_port": {
+    "type": "int",
+    "default": 1876,
+    "description": "远程 WebUI 端口（四位数）；修改后需重启插件。HTTP 仅建议在可信局域网使用，勿暴露到公网。"
+  },
+  "remote_webui_password": {
+    "type": "string",
+    "default": "",
+    "description": "远程 WebUI Basic Auth 口令，用户名固定为 anime，至少 12 个字符；未配置时远程服务不会启动。HTTP 不要经公网暴露。"
+  },
+  "bangumi_api_token": {
+    "type": "string",
+    "default": "",
+    "description": "可选 Bangumi API Token；留空仍使用公开 API。修改后刷新番表即可生效。"
+  }
+}

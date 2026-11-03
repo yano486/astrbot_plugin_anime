@@ -50,7 +50,7 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual(len(sent), 1)
         self.assertIn("按排期提醒", sent[0][1])
 
-    def test_conflicted_schedule_is_not_sent(self) -> None:
+    def test_legacy_conflicted_schedule_is_not_silently_paused(self) -> None:
         item = AnimeItem(key="anime:1", title="Test", schedules=[Schedule(2, 22, 0, "22:00", "x")], data_status="conflict")
         store = FakeStore(item, Subscription("group:1", item.key, lead_minutes=0))
         sent = []
@@ -60,8 +60,8 @@ class SchedulerTests(unittest.TestCase):
             return True
 
         count = asyncio.run(ReminderScheduler(store, deliver).check_once(datetime(2026, 11, 3, 21, 0, tzinfo=ZoneInfo("Asia/Shanghai"))))
-        self.assertEqual(count, 0)
-        self.assertEqual(sent, [])
+        self.assertEqual(count, 1)
+        self.assertEqual(len(sent), 1)
 
     def test_target_must_be_whitelisted_and_subscribed(self) -> None:
         item = AnimeItem(key="anime:1", title="Test", schedules=[Schedule(2, 22, 0, "22:00", "x")], data_status="ok")

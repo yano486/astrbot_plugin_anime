@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import date
 from typing import Any
 from urllib.parse import urlencode
@@ -71,6 +72,16 @@ class BangumiAdapter(SourceAdapter):
     name = "bangumi"
     base_url = "https://api.bgm.tv/v0/subjects"
 
+    def __init__(self, session: Any = None, api_token: str = ""):
+        super().__init__(session)
+        self.api_token = api_token.strip()
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"User-Agent": "yano486/astrbot_plugin_anime/0.2 (https://github.com/yano486/astrbot_plugin_anime)"}
+        if self.api_token:
+            headers["Authorization"] = f"Bearer {self.api_token}"
+        return headers
+
     async def fetch_month(self, year: int, month: int, season: str | None = None) -> SourceResult:
         if self.session is None:
             return SourceResult(self.name, status="error", error="session unavailable", source_url=self.base_url)
@@ -81,7 +92,7 @@ class BangumiAdapter(SourceAdapter):
             while total is None or offset < min(total, 500):
                 query = urlencode({"type": 2, "year": year, "month": month, "sort": "date", "limit": 100, "offset": offset})
                 url = f"{self.base_url}?{query}"
-                async with self.session.get(url, headers={"User-Agent": "yano486/astrbot_plugin_anime/0.1 (https://github.com/yano486/astrbot_plugin_anime)"}) as response:
+                async with self.session.get(url, headers=self._headers()) as response:
                     if response.status != 200:
                         return SourceResult(self.name, status="error", error=f"HTTP {response.status}", source_url=url)
                     payload = await response.json()
@@ -113,15 +124,22 @@ class BangumiAdapter(SourceAdapter):
             return SourceResult(self.name, status="error", error=f"monthly query failures: {statuses}", source_url=self.base_url)
         return SourceResult(self.name, records, self.base_url, "ok" if records else "error", "" if records else f"no quarter data: {statuses}")
 
-    async def fetch_movies(self, today: date, months: int = 3) -> SourceResult:
+    async def fetch_movies(self, today: date) -> SourceResult:
         records: list[SourceRecord] = []
-        for offset in range(months + 1):
-            month_index = today.year * 12 + today.month - 1 + offset
-            year, zero_month = divmod(month_index, 12)
-            result = await self.fetch_month(year, zero_month + 1)
-            if result.status == "ok":
-                records.extend(record for record in result.records if record.item_type in ("movie", "ova"))
+        years = [today.year] + ([today.year + 1] if today.month == 12 else [])
+        statuses: dict[str, str] = {}
+        request_count = 0
+        for year in years:
+            for month in range(1, 13):
+                if request_count and self.session is not None and not self.api_token:
+                    await asyncio.sleep(0.5)
+                result = await self.fetch_month(year, month)
+                request_count += 1
+                statuses[f"{year}-{month:02d}"] = result.error if result.status == "error" else result.status
+                if result.status == "ok":
+                    records.extend(record for record in result.records if record.item_type in ("movie", "ova"))
+        failures = {month: error for month, error in statuses.items() if error != "ok"}
         if not records:
-            return SourceResult(self.name, status="error", error="no upcoming movie catalog returned")
-        return SourceResult(self.name, records, self.base_url)
+            return SourceResult(self.name, status="error", error=f"no movie/OVA records returned; month failures: {failures}", source_url=self.base_url)
+        return SourceResult(self.name, records, self.base_url, "ok", f"partial month failures: {failures}" if failures else "")
 

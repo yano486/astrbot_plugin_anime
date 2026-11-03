@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
@@ -73,15 +72,8 @@ def airings_between(items: Iterable[AnimeItem], start: datetime, end: datetime) 
     return sorted(rows.values(), key=lambda row: (row.at, row.item.title_cn or row.item.title))
 
 
-def _add_months(value: date, months: int) -> date:
-    month_index = value.year * 12 + (value.month - 1) + months
-    year, month = divmod(month_index, 12)
-    month += 1
-    return date(year, month, min(value.day, monthrange(year, month)[1]))
-
-
-def upcoming_movies(items: Iterable[AnimeItem], today: date, months: int = 3) -> list[Airing]:
-    end = _add_months(today, months)
+def upcoming_movies(items: Iterable[AnimeItem], today: date) -> list[Airing]:
+    last_year = today.year + (1 if today.month == 12 else 0)
     rows = []
     for item in items:
         if item.item_type not in ("movie", "ova") or item.region not in ("jp", "mixed") or not item.release_date:
@@ -90,7 +82,7 @@ def upcoming_movies(items: Iterable[AnimeItem], today: date, months: int = 3) ->
             release = date.fromisoformat(item.release_date[:10])
         except ValueError:
             continue
-        if today <= release < end:
+        if today <= release and release.year <= last_year:
             rows.append(Airing(item, None, datetime.combine(release, time.min, BJ)))
     return sorted(rows, key=lambda row: (row.at, row.item.title_cn or row.item.title))
 
@@ -160,5 +152,56 @@ def render_airings_image(title: str, rows: list[Airing], output: Path) -> Path:
     footer_y = height - 52
     draw.line((margin, footer_y - 14, width - margin, footer_y - 14), fill="#d6dbd2", width=1)
     draw.text((margin, footer_y), "排期来自公开资料，仅供参考；临时改期或延期以官方公告为准。", font=_font(13), fill="#818c85")
+    image.save(output, format="PNG", optimize=True)
+    return output
+
+
+def render_weekly_image(title: str, rows: list[Airing], output: Path) -> Path:
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    width, margin = 1800, 44
+    label_width, gap, card_width, card_height = 138, 12, 190, 86
+    columns = 8
+    start_y = 230
+    by_day: dict[date, list[Airing]] = {}
+    for row in rows:
+        by_day.setdefault(row.at.date(), []).append(row)
+    days = sorted(by_day)
+    day_heights = [max(116, 58 + ((len(by_day[day]) + columns - 1) // columns) * (card_height + 9)) for day in days]
+    height = start_y + sum(day_heights) + 75
+    image = Image.new("RGB", (width, height), "#0d0d18")
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((24, 20, width - 24, 145), radius=22, fill="#151522", outline="#29293a", width=2)
+    draw.text((margin + 4, 44), "ANIME / WEEKLY GRID", font=_font(17, True), fill="#68cbd4")
+    draw.text((margin, 76), title, font=_font(42, True), fill="#f3f1f6")
+    draw.text((margin, 137), f"北京时间 · 共 {len(rows)} 部 · 按星期分区", font=_font(17), fill="#9c9daf")
+    draw.text((width - 280, 57), f"{len(days)} 个播放日", font=_font(20, True), fill="#70d3bd")
+    accents = ["#4ca1f2", "#47d77a", "#f2ad2f", "#c748dd", "#f04464", "#26c8d2", "#63dd37"]
+    y = start_y
+    for index, day in enumerate(days):
+        entries = sorted(by_day[day], key=lambda row: (row.at, row.item.title_cn or row.item.title))
+        band_height = day_heights[index]
+        accent = accents[day.isoweekday() - 1]
+        draw.rounded_rectangle((24, y, width - 24, y + band_height - 8), radius=18, fill="#12121d", outline="#242436", width=1)
+        draw.rounded_rectangle((24, y, 31, y + band_height - 8), radius=3, fill=accent)
+        weekday_label = ["", "周一", "周二", "周三", "周四", "周五", "周六", "周日"][day.isoweekday()]
+        draw.text((margin, y + 15), weekday_label, font=_font(21, True), fill="#f1eff5")
+        draw.text((margin, y + 46), day.strftime("%m/%d"), font=_font(17, True), fill=accent)
+        draw.text((margin, y + 72), f"{len(entries)} 部", font=_font(14), fill="#9b9cac")
+        for item_index, row in enumerate(entries):
+            col, line = item_index % columns, item_index // columns
+            x = margin + label_width + col * (card_width + gap)
+            card_y = y + 12 + line * (card_height + 9)
+            draw.rounded_rectangle((x, card_y, x + card_width, card_y + card_height), radius=11, fill="#191927", outline="#323246", width=1)
+            draw.text((x + 10, card_y + 8), row.at.strftime("%H:%M"), font=_font(14, True), fill="#50cad5")
+            name = row.item.title_cn or row.item.title
+            draw.text((x + 10, card_y + 30), name[:13], font=_font(15, True), fill="#eceaf1")
+            if row.schedule:
+                jst = f"日本 {row.schedule.hour:02d}:{row.schedule.minute:02d}"
+            else:
+                jst = "OVA / 剧场版"
+            draw.text((x + 10, card_y + 58), jst, font=_font(11), fill="#aaaabc")
+        y += band_height
+    draw.text((margin, height - 42), "排期来自公开资料，仅供参考；临时改期或延期以官方公告为准。", font=_font(13), fill="#77788a")
     image.save(output, format="PNG", optimize=True)
     return output

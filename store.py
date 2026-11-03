@@ -13,8 +13,10 @@ class JsonStore:
         self.path = Path(path)
         self.state: dict[str, Any] = {
             "items": [],
+            "movie_items": [],
             "targets": {},
             "subscriptions": {},
+            "movie_release_overrides": {},
             "receipts": [],
             "source_status": {},
             "updated_at": "",
@@ -45,6 +47,26 @@ class JsonStore:
         self.state["items"] = [item.to_dict() for item in items]
         if source_status is not None:
             self.state["source_status"] = source_status
+
+    def get_movie_items(self) -> list[AnimeItem]:
+        return [AnimeItem.from_dict(item) for item in self.state.get("movie_items", [])]
+
+    def set_movie_items(self, items: list[AnimeItem]) -> None:
+        self.state["movie_items"] = [item.to_dict() for item in items]
+
+    def get_all_items(self) -> list[AnimeItem]:
+        by_key = {item.key: item for item in self.get_items()}
+        by_key.update({item.key: item for item in self.get_movie_items()})
+        return list(by_key.values())
+
+    def set_movie_release_override(self, item_key: str, release_at: str) -> None:
+        self.state.setdefault("movie_release_overrides", {})[item_key] = release_at
+
+    def clear_movie_release_override(self, item_key: str) -> None:
+        self.state.setdefault("movie_release_overrides", {}).pop(item_key, None)
+
+    def get_movie_release_override(self, item_key: str) -> str:
+        return str(self.state.get("movie_release_overrides", {}).get(item_key, ""))
 
     def get_targets(self) -> list[Target]:
         return [Target(**value) for value in self.state.get("targets", {}).values()]

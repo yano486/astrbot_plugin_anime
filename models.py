@@ -69,6 +69,7 @@ class AnimeItem:
     episode_count: int | None = None
     release_date: str = ""
     data_status: str = "partial"
+    schedule_note: str = ""
     updated_at: str = ""
 
     def to_dict(self) -> dict[str, Any]:

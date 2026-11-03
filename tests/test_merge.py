@@ -34,10 +34,22 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(items[0].bangumi_id, 44)
         self.assertEqual(set(items[0].sources), {"bangumi", "yuc"})
 
-    def test_conflicting_times_are_visible(self) -> None:
-        items = merge_records([record("yuc", "Same Title", 2, 20), record("acgsecrets", "Same Title", 2, 21)])
-        self.assertEqual(items[0].data_status, "conflict")
-        self.assertEqual(len(items[0].schedules), 2)
+    def test_different_source_times_use_the_earliest_japan_time(self) -> None:
+        records = [
+            SourceRecord(
+                source=source,
+                title="Same Title",
+                bangumi_id=2,
+                region="jp",
+                schedules=[Schedule(1, 1, minute, f"01:{minute}", source)],
+            )
+            for source, minute in (("bgmlist", 30), ("bangumi", 40), ("yuc", 45))
+        ]
+        item = merge_records(records)[0]
+        self.assertEqual(item.data_status, "ok")
+        self.assertEqual(len(item.schedules), 1)
+        self.assertEqual((item.schedules[0].hour, item.schedules[0].minute), (1, 30))
+        self.assertIn("01:40", item.schedule_note)
 
     def test_extended_clock_and_next_day_clock_are_not_a_conflict(self):
         first = SourceRecord(source="yuc", title="Test", bangumi_id=3,

@@ -26,8 +26,39 @@ def _region(records: list[SourceRecord]) -> str:
 def _status(schedules: list) -> str:
     if not schedules:
         return "time_unknown"
-    values = {((item.weekday - 1 + item.hour // 24) % 7 + 1, item.hour % 24, item.minute) for item in schedules}
-    return "conflict" if len(values) > 1 else "ok"
+    return "ok"
+
+
+def _schedule_key(schedule) -> tuple[int, int]:
+    day_offset, clock_minutes = divmod(schedule.hour * 60 + schedule.minute, 24 * 60)
+    weekday = (schedule.weekday - 1 + day_offset) % 7
+    return weekday, clock_minutes
+
+
+def unify_schedules(schedules: list) -> tuple[list, str]:
+    unique = []
+    seen = set()
+    for schedule in schedules:
+        identity = (*_schedule_key(schedule), schedule.source)
+        if identity not in seen:
+            unique.append(schedule)
+            seen.add(identity)
+    if not unique:
+        return [], ""
+    selected = min(unique, key=_schedule_key)
+    if len({_schedule_key(schedule) for schedule in unique}) == 1:
+        return [selected], ""
+    alternatives = "、".join(
+        f"{schedule.source} {schedule.hour:02d}:{schedule.minute:02d} JST"
+        for schedule in unique
+        if schedule is not selected
+    )
+    note = (
+        f"来源时间不一致，已统一采用最早时间 "
+        f"{selected.hour:02d}:{selected.minute:02d} JST（{selected.source}）；"
+        f"其他来源：{alternatives}"
+    )
+    return [selected], note
 
 
 def merge_records(records: list[SourceRecord]) -> list[AnimeItem]:
@@ -92,13 +123,7 @@ def merge_records(records: list[SourceRecord]) -> list[AnimeItem]:
                 roles.add(record.season_role)
             if record.source_url:
                 source_urls[record.source] = record.source_url
-        unique_schedules = []
-        seen_schedule = set()
-        for schedule in schedules:
-            identity = (schedule.weekday, schedule.hour, schedule.minute, schedule.source)
-            if identity not in seen_schedule:
-                unique_schedules.append(schedule)
-                seen_schedule.add(identity)
+        unique_schedules, schedule_note = unify_schedules(schedules)
         key = f"bangumi:{first.bangumi_id}" if first.bangumi_id is not None else f"title:{normalize_title(first.title)}"
         result.append(
             AnimeItem(
@@ -122,6 +147,7 @@ def merge_records(records: list[SourceRecord]) -> list[AnimeItem]:
                 episode_count=next(iter(episode_counts)) if len(episode_counts) == 1 else None,
                 release_date=next(iter(release_dates)) if len(release_dates) == 1 else "",
                 data_status=_status(unique_schedules),
+                schedule_note=schedule_note,
                 updated_at=utc_now_iso(),
             )
         )

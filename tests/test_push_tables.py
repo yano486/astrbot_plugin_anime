@@ -31,12 +31,24 @@ class PushTableTests(unittest.TestCase):
         self.assertEqual(rows[0].at.hour, 0)
         self.assertEqual(rows[0].at.minute, 30)
 
-    def test_upcoming_movie_filter_uses_next_three_months(self) -> None:
+    def test_upcoming_movie_filter_covers_rest_of_year_and_next_year_in_december(self) -> None:
         movie = AnimeItem(key="m", title="Film", title_cn="剧场版", item_type="movie", region="jp", release_date="2026-12-01")
         ova = AnimeItem(key="o", title="OVA", item_type="ova", region="jp", release_date="2027-01-01")
         old = AnimeItem(key="old", title="Old", item_type="movie", region="jp", release_date="2026-09-01")
-        rows = upcoming_movies([movie, ova, old], date(2026, 11, 3), months=3)
+        rows = upcoming_movies([movie, ova, old], date(2026, 11, 3))
+        self.assertEqual({row.item.key for row in rows}, {"m"})
+        rows = upcoming_movies([movie, ova, old], date(2026, 12, 1))
         self.assertEqual({row.item.key for row in rows}, {"m", "o"})
+
+    def test_weekly_schedule_can_render_as_day_bands(self) -> None:
+        from astrbot_plugin_anime.push_tables import render_weekly_image
+
+        rows = airings_between([self.item], datetime(2026, 10, 5, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")), datetime(2026, 10, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")))
+        with tempfile.TemporaryDirectory() as directory:
+            path = render_weekly_image("本周动画播放表", rows, Path(directory) / "week.png")
+            with Image.open(path) as image:
+                self.assertEqual(image.format, "PNG")
+                self.assertGreater(image.width, image.height)
 
     def test_combined_table_is_a_single_png(self) -> None:
         rows = airings_between([self.item], datetime(2026, 10, 6, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")), datetime(2026, 10, 7, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")))

@@ -28,19 +28,13 @@
     "type": "string",
     "default": "",
     "description": "Bangumi API Token",
-    "hint": "可选。到 Bangumi 开发者 API 页面获取个人 Token 后，将 Token 本体粘贴于此；插件会自动以 Bearer Token 方式请求 API。留空仍可使用公开 API，填写后可降低限流影响。修改后获取番表生效。",
+    "hint": "可选。到 https://next.bgm.tv/demo/access-token 获取 Token；将 Token 本体粘贴于此。插件会自动以 Bearer Token 方式请求 API。留空仍可使用公开 API，填写后可降低限流影响。修改后获取番表生效。",
     "secret": true
   },
-  "bangumi_proxy_host": {
+  "bangumi_proxy": {
     "type": "string",
     "default": "",
-    "description": "Bangumi 代理地址",
-    "hint": "可选。填写手机或局域网代理地址，例如 192.168.0.2；留空时直连 Bangumi。"
-  },
-  "bangumi_proxy_port": {
-    "type": "int",
-    "default": 0,
-    "description": "Bangumi 代理端口",
-    "hint": "可选。与代理地址一起填写，例如 7890；端口为 1-65535，留空或 0 表示不使用代理。"
+    "description": "Bangumi 代理",
+    "hint": "可选。填写完整 HTTP 代理地址，例如 http://127.0.0.1:10808；留空时直连 Bangumi。"
   }
 }

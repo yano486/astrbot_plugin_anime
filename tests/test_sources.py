@@ -29,14 +29,14 @@ class SourceParserTests(unittest.TestCase):
         self.assertEqual(records[0].region, "jp")
         self.assertEqual(records[0].item_type, "tv")
 
-    def test_bangumi_proxy_is_normalized_from_host_and_port(self) -> None:
+    def test_bangumi_proxy_is_normalized_from_one_url_setting(self) -> None:
         from astrbot_plugin_anime.sources.bangumi import BangumiAdapter
 
         self.assertEqual(
-            BangumiAdapter(None, proxy_host="192.168.0.2", proxy_port=7890).proxy_url,
+            BangumiAdapter(None, proxy_url="http://192.168.0.2:7890").proxy_url,
             "http://192.168.0.2:7890",
         )
-        self.assertIsNone(BangumiAdapter(None, proxy_host="", proxy_port=7890).proxy_url)
+        self.assertIsNone(BangumiAdapter(None, proxy_url="").proxy_url)
 
     def test_bangumi_can_exclude_r18_records(self) -> None:
         payload = {"data": [

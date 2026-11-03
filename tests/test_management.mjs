@@ -123,9 +123,19 @@ test('OVA and movies hide weekday and season-role filters', () => {
 
 test('TV exposes compact weekday shortcuts and fetch button status text', () => {
   assert.match(markup, /id="weekday-buttons"/);
+  assert.match(markup, /data-weekday=""[^>]*>全部/);
   assert.match(markup, /data-weekday="1"/);
   assert.match(source, /正在获取/);
   assert.match(source, /已获取最新番剧表/);
+});
+
+test('early access type targets the next quarter and keeps only supported filters', () => {
+  const app = setup(async () => ({}));
+  assert.equal(app.run('catalogPeriodMode("preview")'), 'preview');
+  assert.equal(app.run('nextSeason(new Date(2026, 6, 1))'), '2026-10');
+  assert.equal(app.run('nextSeason(new Date(2026, 9, 1))'), '2027-01');
+  assert.match(markup, /新番抢先看/);
+  assert.match(source, /type === "preview"/);
 });
 
 test('season choices show the previous, current, and next quarter without a duplicate masthead control', () => {
@@ -190,8 +200,8 @@ test('settings page exposes whitelist, test-push, and remote WebUI status', () =
 });
 
 test('R18 preference uses a styled yes-or-no select', () => {
-  assert.match(markup, /id="exclude-r18"[^>]*>[\s\S]*否/);
-  assert.match(markup, /是，排除/);
+  assert.match(markup, /id="exclude-r18"[^>]*>[\s\S]*>否</);
+  assert.match(markup, /id="exclude-r18"[^>]*>[\s\S]*>是</);
   assert.doesNotMatch(markup, /id="exclude-r18"[^>]*type="checkbox"/);
 });
 

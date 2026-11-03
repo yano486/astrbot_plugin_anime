@@ -69,20 +69,29 @@ class BgmlistAdapter(SourceAdapter):
             return SourceResult(self.name, status="error", error="session unavailable")
         records = []
         urls = []
+        semaphore = asyncio.Semaphore(2)
+
+        async def fetch_month_file(url: str):
+            async with semaphore:
+                async with self.session.get(url, headers={"User-Agent": "astrbot_plugin_anime/0.1"}) as response:
+                    if response.status == 404:
+                        return []
+                    if response.status != 200:
+                        raise RuntimeError(f"HTTP {response.status}")
+                    return parse_bgmlist_payload(await response.json(content_type=None), url, season)
+
         try:
             # Keep adjacent-month broadcasts in the selected quarter's catalog.
+            requests = []
             for offset in range(-1, 3):
                 month_index = year * 12 + month - 1 + offset
                 current_year, zero_month = divmod(month_index, 12)
                 current_month = zero_month + 1
                 url = f"https://raw.githubusercontent.com/bangumi-data/bangumi-data/master/data/items/{current_year}/{current_month:02d}.json"
                 urls.append(url)
-                async with self.session.get(url, headers={"User-Agent": "astrbot_plugin_anime/0.1"}) as response:
-                    if response.status == 404:
-                        continue
-                    if response.status != 200:
-                        return SourceResult(self.name, status="error", error=f"HTTP {response.status}", source_url=url)
-                    records.extend(parse_bgmlist_payload(await response.json(content_type=None), url, season))
+                requests.append(fetch_month_file(url))
+            for batch in await asyncio.gather(*requests):
+                records.extend(batch)
             return SourceResult(self.name, records, ",".join(urls), "ok" if records else "error", "" if records else "no quarter data")
         except Exception as exc:
             return SourceResult(self.name, status="error", error=f"{type(exc).__name__}: {exc}", source_url=",".join(urls))

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from datetime import date
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlsplit, urlencode
 
 from ..diagnostics import get_plugin_logger
 from .base import SourceAdapter, SourceResult
@@ -14,19 +14,16 @@ from ..models import SourceRecord
 logger = get_plugin_logger()
 
 
-def normalize_proxy_url(host: Any, port: Any) -> str | None:
-    host = str(host or "").strip()
-    if not host:
+def normalize_proxy_url(value: Any) -> str | None:
+    value = str(value or "").strip()
+    if not value:
         return None
-    try:
-        port = int(port)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("Bangumi proxy port must be an integer from 1 to 65535") from exc
-    if not 1 <= port <= 65535:
-        raise ValueError("Bangumi proxy port must be an integer from 1 to 65535")
-    if "://" not in host:
-        host = f"http://{host}"
-    return f"{host.rstrip('/')}:{port}"
+    if "://" not in value:
+        value = f"http://{value}"
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.port is None:
+        raise ValueError("Bangumi proxy must be an HTTP URL with a port")
+    return value.rstrip("/")
 
 
 def _region(tags: list[dict[str, Any]]) -> str:
@@ -100,11 +97,11 @@ class BangumiAdapter(SourceAdapter):
     name = "bangumi"
     base_url = "https://api.bgm.tv/v0/subjects"
 
-    def __init__(self, session: Any = None, api_token: str = "", proxy_host: Any = "", proxy_port: Any = 0):
+    def __init__(self, session: Any = None, api_token: str = "", proxy_url: Any = ""):
         super().__init__(session)
         self.api_token = api_token.strip()
         self.exclude_r18 = False
-        self.proxy_url = normalize_proxy_url(proxy_host, proxy_port)
+        self.proxy_url = normalize_proxy_url(proxy_url)
 
     def _headers(self) -> dict[str, str]:
         headers = {"User-Agent": "yano486/astrbot_plugin_anime/0.2 (https://github.com/yano486/astrbot_plugin_anime)"}
@@ -143,16 +140,22 @@ class BangumiAdapter(SourceAdapter):
 
     async def fetch(self, season: str) -> SourceResult:
         year, month = season_year_month(season)
-        records: list[SourceRecord] = []
-        statuses: dict[str, str] = {}
-        # Include the preceding month so a show that started just before the
-        # quarter is still visible while it remains part of this season's list.
-        for offset in range(-1, 3):
+        semaphore = asyncio.Semaphore(2)
+
+        async def fetch_adjacent(offset: int) -> tuple[str, SourceResult]:
             month_index = year * 12 + month - 1 + offset
             current_year, zero_month = divmod(month_index, 12)
             current_month = zero_month + 1
-            result = await self.fetch_month(current_year, current_month, season)
-            statuses[f"{current_year}-{current_month:02d}"] = result.error if result.status == "error" else result.status
+            async with semaphore:
+                return f"{current_year}-{current_month:02d}", await self.fetch_month(current_year, current_month, season)
+
+        # Include the preceding month so a show that started just before the
+        # quarter is still visible while it remains part of this season's list.
+        results = await asyncio.gather(*(fetch_adjacent(offset) for offset in range(-1, 3)))
+        records: list[SourceRecord] = []
+        statuses: dict[str, str] = {}
+        for period, result in results:
+            statuses[period] = result.error if result.status == "error" else result.status
             if result.status == "ok":
                 records.extend(result.records)
         if not records and any(value == "error" for value in statuses.values()):
@@ -163,16 +166,17 @@ class BangumiAdapter(SourceAdapter):
         records: list[SourceRecord] = []
         years = [today.year] + ([today.year + 1] if today.month == 12 else [])
         statuses: dict[str, str] = {}
-        request_count = 0
-        for year in years:
-            for month in range(1, 13):
-                if request_count and self.session is not None and not self.api_token:
-                    await asyncio.sleep(0.5)
-                result = await self.fetch_month(year, month)
-                request_count += 1
-                statuses[f"{year}-{month:02d}"] = result.error if result.status == "error" else result.status
-                if result.status == "ok":
-                    records.extend(record for record in result.records if record.item_type in ("movie", "ova"))
+        semaphore = asyncio.Semaphore(2)
+
+        async def fetch_movie_month(year: int, month: int):
+            async with semaphore:
+                return year, month, await self.fetch_month(year, month)
+
+        results = await asyncio.gather(*(fetch_movie_month(year, month) for year in years for month in range(1, 13)))
+        for year, month, result in results:
+            statuses[f"{year}-{month:02d}"] = result.error if result.status == "error" else result.status
+            if result.status == "ok":
+                records.extend(record for record in result.records if record.item_type in ("movie", "ova"))
         failures = {month: error for month, error in statuses.items() if error != "ok"}
         if not records:
             return SourceResult(self.name, status="error", error=f"no movie/OVA records returned; month failures: {failures}", source_url=self.base_url)

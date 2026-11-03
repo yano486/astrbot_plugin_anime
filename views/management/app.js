@@ -19,8 +19,23 @@ function seasonPeriodOptions(now = new Date()) {
 
 function catalogPeriodMode(type) {
   if (type === "tv" || type === "web") return "season";
+  if (type === "preview") return "preview";
   if (!type) return "broadcast";
   return "year";
+}
+
+function nextSeason(now = new Date()) {
+  const month = Math.floor(now.getMonth() / 3) * 3 + 1;
+  const year = now.getFullYear() + (month === 10 ? 1 : 0);
+  const nextMonth = month === 10 ? 1 : month + 3;
+  return `${year}-${String(nextMonth).padStart(2, "0")}`;
+}
+
+function allYearSeasons(now = new Date()) {
+  const year = now.getFullYear();
+  const current = currentSeason(now);
+  const values = ["01", "04", "07", "10"].map(month => `${year}-${month}`);
+  return [current, ...values.filter(value => value !== current)];
 }
 
 function periodLabel(type, value) {
@@ -43,6 +58,7 @@ function broadcastPeriodOptions(now = new Date()) {
 function periodOptions(type, items = state.items, now = new Date()) {
   const mode = catalogPeriodMode(type);
   if (mode === "season") return seasonPeriodOptions(now);
+  if (mode === "preview") return [{value: nextSeason(now), label: periodLabel("season", nextSeason(now))}];
   if (mode === "broadcast") return broadcastPeriodOptions(now);
   const years = new Set();
   for (const item of items || []) {
@@ -58,6 +74,7 @@ function periodOptions(type, items = state.items, now = new Date()) {
 function periodsForSelection(type, period) {
   const mode = catalogPeriodMode(type);
   if (mode === "season") return period ? [period] : [];
+  if (mode === "preview") return period ? [period] : [];
   if (mode !== "broadcast") return [];
   if (/^\d{4}-(01|04|07|10)$/.test(period || "")) return [period];
   const match = /^(\d{4})-(h1|h2|all)$/.exec(period || "");
@@ -70,6 +87,7 @@ function matchesCatalogPeriod(item, type, period) {
   if (!period) return true;
   const mode = catalogPeriodMode(type);
   if (mode === "season") return !isMovie(item) && item.season === period;
+  if (mode === "preview") return !isMovie(item) && item.season === period;
   if (mode === "broadcast") {
     const periods = periodsForSelection(type, period);
     if (isMovie(item)) {
@@ -89,7 +107,7 @@ function configurePeriodControl() {
   const type = $("#type").value;
   const mode = catalogPeriodMode(type);
   const options = periodOptions(type);
-  const defaultValue = mode === "year" ? String(new Date().getFullYear()) : currentSeason();
+  const defaultValue = mode === "year" ? String(new Date().getFullYear()) : mode === "preview" ? nextSeason() : currentSeason();
   const remembered = state.periodSelections[mode];
   const value = options.some(option => option.value === remembered) ? remembered
     : options.some(option => option.value === defaultValue) ? defaultValue
@@ -104,7 +122,7 @@ function configurePeriodControl() {
   select.value = value;
   state.periodMode = mode;
   state.periodSelections[mode] = value;
-  $("#period-label").textContent = mode === "season" ? "季度" : mode === "broadcast" ? "播出时间" : "上映年份";
+  $("#period-label").textContent = mode === "season" || mode === "preview" ? "季度" : mode === "broadcast" ? "播出时间" : "上映年份";
   updateFilterVisibility(type);
   window.AnimeControls?.refresh(select);
 }
@@ -119,8 +137,13 @@ function syncWeekdayButtons() {
 
 function updateFilterVisibility(type) {
   const movie = ["ova", "movie"].includes(type);
-  $("#weekday-filter").hidden = movie;
-  $("#role-filter").hidden = movie;
+  const preview = type === "preview";
+  $("#query").disabled = preview;
+  $("#weekday-filter").hidden = movie || preview;
+  $("#role-filter").hidden = movie || preview;
+  $("#query").value = preview ? "" : $("#query").value;
+  $("#weekday").value = preview || movie ? "" : $("#weekday").value;
+  $("#role").value = preview || movie ? "" : $("#role").value;
   const weekdaySelect = $("#weekday-filter .select-control");
   if (weekdaySelect) weekdaySelect.hidden = type === "tv";
   $("#weekday-buttons").hidden = type !== "tv";
@@ -214,6 +237,8 @@ function render() {
     if (q && !`${item.title} ${item.title_cn} ${(item.aliases || []).join(" ")} ${(item.genres || []).join(" ")}`.toLowerCase().includes(q)) return false;
     return true;
   });
+  const itemOrder = {tv: 0, web: 1, ova: 2, movie: 3};
+  items.sort((left, right) => (itemOrder[left.item_type] ?? 9) - (itemOrder[right.item_type] ?? 9));
   $("#count").textContent = `${items.length} 部`;
   const catalog = $("#catalog"); catalog.replaceChildren();
   if (!items.length) { catalog.innerHTML = '<div class="empty">当前筛选没有作品。可以检查来源状态或尝试放宽筛选条件。</div>'; return; }
@@ -291,11 +316,11 @@ async function resetMovieRelease(item, card) {
   }
 }
 
-async function loadItems(shouldRefresh = false) {
+async function loadItems(shouldRefresh = false, fullYear = false) {
   const requestedMode = state.periodMode;
   const requestedPeriod = $("#period").value;
   const requestedType = $("#type").value;
-  const requestedPeriods = periodsForSelection(requestedType, requestedPeriod);
+  const requestedPeriods = fullYear && !requestedType ? allYearSeasons() : periodsForSelection(requestedType, requestedPeriod);
   $("#refresh-status").textContent = shouldRefresh ? "正在获取多个来源…" : "正在获取作品目录…";
   if (shouldRefresh) {
     const refreshBody = requestedPeriods.length ? {seasons: requestedPeriods} : {season: requestedPeriod};
@@ -491,7 +516,7 @@ async function refreshAll() {
   button.disabled = true;
   button.textContent = "正在获取…";
   try {
-    await loadItems(true);
+    await loadItems(true, true);
     $("#save-status").textContent = sourceFailureNotice() || "已获取最新番剧表";
     $("#save-status").classList.remove("notice-error");
     $("#save-status").classList.add("notice-success");
@@ -527,10 +552,10 @@ async function init() {
       syncWeekdayButtons();
       render();
     }));
-    $("#type").addEventListener("change", () => { configurePeriodControl(); loadItems(true); });
+    $("#type").addEventListener("change", () => { configurePeriodControl(); loadItems(false); });
     $("#period").addEventListener("change", () => {
       state.periodSelections[state.periodMode] = $("#period").value;
-      loadItems(true);
+      loadItems(false);
     });
     $("#refresh").addEventListener("click", refreshAll);
     $("#load-subs").addEventListener("click", loadSubscriptions);
@@ -545,7 +570,7 @@ async function init() {
     $("#logout").addEventListener("click", logout);
     $("#show-catalog").addEventListener("click", () => showView("catalog"));
     $("#show-settings").addEventListener("click", () => showView("settings"));
-    await Promise.all([loadStatus(), loadTargets(), loadItems(true)]);
+    await Promise.all([loadStatus(), loadTargets(), loadItems(false)]);
   } catch (error) { $("#catalog").innerHTML = `<div class="error">管理页面载入失败：${safe(error.message)}</div>`; }
 }
 

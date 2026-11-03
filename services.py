@@ -13,10 +13,10 @@ logger = get_plugin_logger()
 
 
 class RefreshService:
-    def __init__(self, session: Any, store: Any, adapters: list[Any] | None = None, bangumi_token: str = "", bangumi_proxy_host: Any = "", bangumi_proxy_port: Any = 0):
+    def __init__(self, session: Any, store: Any, adapters: list[Any] | None = None, bangumi_token: str = "", bangumi_proxy: Any = ""):
         self.session = session
         self.store = store
-        self.bangumi = BangumiAdapter(session, bangumi_token, bangumi_proxy_host, bangumi_proxy_port)
+        self.bangumi = BangumiAdapter(session, bangumi_token, bangumi_proxy)
         self.adapters = adapters or [
             self.bangumi,
             BgmlistAdapter(session),

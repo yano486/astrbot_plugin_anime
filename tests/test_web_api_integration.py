@@ -84,6 +84,32 @@ class WebApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(plugin.refresh_service.seasons, ["2026-01", "2026-04"])
             self.assertEqual(plugin.refresh_service.movie_calls, 1)
 
+    async def test_refresh_preserves_requested_priority_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = JsonStore(Path(directory) / "state.json")
+
+            class RefreshService:
+                def __init__(self): self.seasons = []
+                async def refresh(self, season):
+                    self.seasons.append(season)
+                    return {"items": [], "sources": {}}
+                async def refresh_movies(self, today):
+                    return {"items": [], "sources": {}}
+
+            class Plugin:
+                def __init__(self):
+                    self.store = store
+                    self.refresh_service = RefreshService()
+                @staticmethod
+                def current_season(): return "2026-07"
+
+            plugin = Plugin()
+            status, _ = await AnimeWebAPI(plugin).execute(
+                "refresh", "POST", {}, {"seasons": ["2026-07", "2026-10", "2027-01", "2026-04"]}
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(plugin.refresh_service.seasons, ["2026-07", "2026-10", "2027-01", "2026-04"])
+
     async def test_movie_catalog_selection_release_time_and_test_push_share_target_state(self):
         with tempfile.TemporaryDirectory() as directory:
             store = JsonStore(Path(directory) / "state.json")

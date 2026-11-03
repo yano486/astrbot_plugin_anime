@@ -25,7 +25,7 @@ from .time_utils import BJ, JST
 plugin_logger = get_plugin_logger()
 
 
-PLUGIN_VERSION = "0.2.4"
+PLUGIN_VERSION = "0.2.5"
 
 
 @register("astrbot_plugin_anime", "Aut-sep", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)
@@ -54,7 +54,7 @@ class AnimePlugin(Star):
         return f"{now.year}-{month:02d}"
 
     async def initialize(self) -> None:
-        log_path = configure_plugin_logging(self.data_dir)
+        log_path = configure_plugin_logging(self.data_dir, astrbot_logger=logger)
         plugin_logger.info("[anime] 插件启动，日志文件：%s", log_path)
         self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=25))
         try:
@@ -62,8 +62,7 @@ class AnimePlugin(Star):
                 self.session,
                 self.store,
                 bangumi_token=str(self.config.get("bangumi_api_token", "")),
-                bangumi_proxy_host=self.config.get("bangumi_proxy_host", ""),
-                bangumi_proxy_port=self.config.get("bangumi_proxy_port", 0),
+                bangumi_proxy=str(self.config.get("bangumi_proxy", "")),
             )
             if self.refresh_service.bangumi.proxy_url:
                 plugin_logger.info("[anime] Bangumi 代理已启用：%s", self.refresh_service.bangumi.proxy_url)

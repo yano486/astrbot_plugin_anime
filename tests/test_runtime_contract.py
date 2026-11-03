@@ -22,8 +22,10 @@ class RuntimeContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(schema["remote_webui_port"]["default"], 1876)
         self.assertIn("remote_webui_password", schema)
         self.assertIn("bangumi_api_token", schema)
-        self.assertIn("bangumi_proxy_host", schema)
-        self.assertIn("bangumi_proxy_port", schema)
+        self.assertIn("bangumi_proxy", schema)
+        self.assertNotIn("bangumi_proxy_host", schema)
+        self.assertNotIn("bangumi_proxy_port", schema)
+        self.assertIn("https://next.bgm.tv/demo/access-token", schema["bangumi_api_token"]["hint"])
 
     def test_plugin_diagnostics_use_a_rotating_file_with_automatic_retention(self):
         from astrbot_plugin_anime.diagnostics import configure_plugin_logging

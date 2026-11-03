@@ -13,6 +13,7 @@ from astrbot.api.event import AstrMessageEvent, MessageChain, filter
 from astrbot.api.star import Context, Star, StarTools, register
 
 from .models import Target
+from .diagnostics import configure_plugin_logging, get_plugin_logger
 from .scheduler import ReminderScheduler
 from .services import RefreshService
 from .store import JsonStore
@@ -21,7 +22,10 @@ from .push_tables import Airing, airings_between, render_airings_image, render_w
 from .time_utils import BJ, JST
 
 
-PLUGIN_VERSION = "0.2.3"
+plugin_logger = get_plugin_logger()
+
+
+PLUGIN_VERSION = "0.2.4"
 
 
 @register("astrbot_plugin_anime", "Aut-sep", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)
@@ -50,12 +54,26 @@ class AnimePlugin(Star):
         return f"{now.year}-{month:02d}"
 
     async def initialize(self) -> None:
+        log_path = configure_plugin_logging(self.data_dir)
+        plugin_logger.info("[anime] 插件启动，日志文件：%s", log_path)
         self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=25))
-        self.refresh_service = RefreshService(
-            self.session,
-            self.store,
-            bangumi_token=str(self.config.get("bangumi_api_token", "")),
-        )
+        try:
+            self.refresh_service = RefreshService(
+                self.session,
+                self.store,
+                bangumi_token=str(self.config.get("bangumi_api_token", "")),
+                bangumi_proxy_host=self.config.get("bangumi_proxy_host", ""),
+                bangumi_proxy_port=self.config.get("bangumi_proxy_port", 0),
+            )
+            if self.refresh_service.bangumi.proxy_url:
+                plugin_logger.info("[anime] Bangumi 代理已启用：%s", self.refresh_service.bangumi.proxy_url)
+        except ValueError as exc:
+            plugin_logger.error("[anime] Bangumi 代理配置无效，将使用直连：%s", exc)
+            self.refresh_service = RefreshService(
+                self.session,
+                self.store,
+                bangumi_token=str(self.config.get("bangumi_api_token", "")),
+            )
         self.web_api.register()
         await self._start_remote_webui()
         self.scheduler = ReminderScheduler(self.store, self._deliver)

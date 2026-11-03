@@ -450,14 +450,15 @@ async function addUmoTarget() {
 function applyPreferences() {
   $("#schedule-source").value = state.preferences.schedule_source;
   $("#display-timezone").value = state.preferences.display_timezone;
-  $("#exclude-r18").checked = Boolean(state.preferences.exclude_r18);
+  $("#exclude-r18").value = String(Boolean(state.preferences.exclude_r18));
   window.AnimeControls?.refresh($("#schedule-source"));
   window.AnimeControls?.refresh($("#display-timezone"));
+  window.AnimeControls?.refresh($("#exclude-r18"));
   render();
 }
 
 async function savePreferences() {
-  const values = {schedule_source: $("#schedule-source").value, display_timezone: $("#display-timezone").value, exclude_r18: $("#exclude-r18").checked};
+  const values = {schedule_source: $("#schedule-source").value, display_timezone: $("#display-timezone").value, exclude_r18: $("#exclude-r18").value === "true"};
   try {
     const result = await bridge.apiPost("preferences", values);
     state.preferences = result.preferences;

@@ -4,15 +4,19 @@ import asyncio
 from datetime import date, datetime, timezone
 from typing import Any
 
+from .diagnostics import get_plugin_logger
 from .merge import merge_records, unify_schedules
 from .sources import BangumiAdapter, BgmlistAdapter, SourceResult, YucAdapter
 
 
+logger = get_plugin_logger()
+
+
 class RefreshService:
-    def __init__(self, session: Any, store: Any, adapters: list[Any] | None = None, bangumi_token: str = ""):
+    def __init__(self, session: Any, store: Any, adapters: list[Any] | None = None, bangumi_token: str = "", bangumi_proxy_host: Any = "", bangumi_proxy_port: Any = 0):
         self.session = session
         self.store = store
-        self.bangumi = BangumiAdapter(session, bangumi_token)
+        self.bangumi = BangumiAdapter(session, bangumi_token, bangumi_proxy_host, bangumi_proxy_port)
         self.adapters = adapters or [
             self.bangumi,
             BgmlistAdapter(session),
@@ -20,6 +24,7 @@ class RefreshService:
         ]
 
     async def refresh(self, season: str) -> dict[str, Any]:
+        logger.info("[anime] 开始获取季度番表：%s", season)
         preferences = self.store.get_preferences() if hasattr(self.store, "get_preferences") else {}
         self.bangumi.exclude_r18 = bool(preferences.get("exclude_r18", False))
         results: list[SourceResult] = await asyncio.gather(*(adapter.fetch(season) for adapter in self.adapters))
@@ -36,6 +41,11 @@ class RefreshService:
             }
             for result in results
         }
+        for name, value in status.items():
+            if value["status"] == "error":
+                logger.error("[anime] 来源 %s 获取失败：%s", name, value["error"] or "未知错误")
+            else:
+                logger.info("[anime] 来源 %s 获取完成：%s 条", name, value["count"])
         if items:
             failed_sources = {name for name, value in status.items() if value["status"] == "error"}
             previous = self.store.get_items()
@@ -73,6 +83,7 @@ class RefreshService:
             self.store.state["updated_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         self.store.state["source_status"] = status
         self.store.save()
+        logger.info("[anime] 季度番表获取完成：%s，合并 %s 部", season, len(items))
         return {"items": items, "sources": status, "updated_at": self.store.state.get("updated_at", "")}
 
     async def refresh_movies(self, today: date):

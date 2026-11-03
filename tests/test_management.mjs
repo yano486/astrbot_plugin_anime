@@ -189,6 +189,18 @@ test('settings page exposes whitelist, test-push, and remote WebUI status', () =
   assert.match(source, /class="button button-quiet remove-whitelist"/);
 });
 
+test('R18 preference uses a styled yes-or-no select', () => {
+  assert.match(markup, /id="exclude-r18"[^>]*>[\s\S]*否/);
+  assert.match(markup, /是，排除/);
+  assert.doesNotMatch(markup, /id="exclude-r18"[^>]*type="checkbox"/);
+});
+
+test('catalog places the push target row beside search and keeps filters in the second boxed row', () => {
+  assert.match(markup, /class="catalog-command-row"[\s\S]*class="search"[\s\S]*class="target-row"/);
+  assert.match(markup, /class="catalog-command-row"[\s\S]*<\/section>[\s\S]*class="toolbar"/);
+  assert.doesNotMatch(markup, /class="toolbar"[\s\S]*class="search"/);
+});
+
 test('catalog fetch action is labelled as getting the schedule', () => {
   assert.match(markup, /id="refresh"[^>]*>获取番表</);
   assert.doesNotMatch(markup, /id="refresh"[^>]*>刷新番表</);

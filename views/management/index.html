@@ -32,22 +32,24 @@
       <div id="source-status" class="source-status"></div>
     </section>
 
-    <section class="toolbar">
+    <section class="catalog-command-row">
       <label class="search"><span>⌕</span><input id="query" type="search" placeholder="搜索标题、别名或题材"></label>
+      <section class="target-row">
+        <label for="target">提醒发送到</label>
+        <select id="target" aria-label="提醒发送到"><option value="">选择已绑定的群或会话</option></select>
+        <span>先在机器人会话中执行 <code>/anime绑定</code></span>
+        <button class="button button-quiet" id="load-subs">读取订阅</button>
+        <button class="button button-accent" id="save-subs">保存所选订阅</button>
+      </section>
+    </section>
+
+    <section class="toolbar">
       <div class="filter-control"><span id="region-label" class="filter-label">地区</span><select id="region" aria-label="地区"><option value="jp" selected>日本动画</option><option value="">所有地区</option><option value="mixed">多地区/合拍</option><option value="unknown">待确认</option></select></div>
       <div class="filter-control"><span id="type-label" class="filter-label">类型</span><select id="type" aria-label="类型"><option value="">所有类型</option><option value="tv">TV</option><option value="web">WEB</option><option value="ova">OVA</option><option value="movie">剧场版</option></select></div>
       <div class="filter-control" id="weekday-filter"><span id="weekday-label" class="filter-label">星期</span><select id="weekday" aria-label="星期"><option value="">所有星期</option><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option></select><div id="weekday-buttons" class="weekday-buttons" hidden><button type="button" data-weekday="1">一</button><button type="button" data-weekday="2">二</button><button type="button" data-weekday="3">三</button><button type="button" data-weekday="4">四</button><button type="button" data-weekday="5">五</button><button type="button" data-weekday="6">六</button><button type="button" data-weekday="7">日</button></div></div>
       <div class="filter-control" id="role-filter"><span id="role-label" class="filter-label">季度属性</span><select id="role" aria-label="季度属性"><option value="">新作与续播</option><option value="new">新作</option><option value="continuing">跨季续播</option></select></div>
       <div class="filter-control"><span id="period-label" class="filter-label">上映年份</span><select id="period" aria-label="筛选季度或上映年份"></select></div>
       <div class="filter-control"><span id="source-label" class="filter-label">来源</span><select id="source" aria-label="来源"><option value="">所有来源</option></select></div>
-    </section>
-
-    <section class="target-row">
-      <label for="target">提醒发送到</label>
-      <select id="target" aria-label="提醒发送到"><option value="">选择已绑定的群或会话</option></select>
-      <span>先在机器人会话中执行 <code>/anime绑定</code></span>
-      <button class="button button-quiet" id="load-subs">读取订阅</button>
-      <button class="button button-accent" id="save-subs">保存所选订阅</button>
     </section>
 
     <section class="catalog-head">
@@ -69,7 +71,7 @@
         <div class="preference-controls">
           <div class="preference-field"><span>排期来源</span><select id="schedule-source" aria-label="排期来源"><option value="earliest">同时获取，采用最早时间（推荐）</option><option value="yuc">YUC</option><option value="bgmlist">bgmlist</option><option value="bangumi">Bangumi（当前不提供具体播出时刻）</option></select></div>
           <div class="preference-field"><span>显示与推送时间</span><select id="display-timezone" aria-label="显示与推送时间"><option value="Asia/Shanghai">北京时间</option><option value="Asia/Tokyo">日本时间</option></select></div>
-          <label class="preference-check"><input id="exclude-r18" type="checkbox"> <span>排除 R18 内容</span></label>
+          <div class="preference-field"><span>是否排除 R18 内容</span><select id="exclude-r18" aria-label="是否排除 R18 内容"><option value="false">否，不排除</option><option value="true">是，排除</option></select></div>
           <button class="button button-accent" id="save-preferences" type="button">保存设置</button>
         </div>
         <small>默认提前 15 分钟提醒 TV / 有时间排期的 WEB 动画。Bangumi 含有 R18 元素时，勾选后会排除这些内容；日本 23:00 与北京时间 22:00 是同一时刻。</small>

@@ -22,6 +22,24 @@ class RuntimeContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(schema["remote_webui_port"]["default"], 1876)
         self.assertIn("remote_webui_password", schema)
         self.assertIn("bangumi_api_token", schema)
+        self.assertIn("bangumi_proxy_host", schema)
+        self.assertIn("bangumi_proxy_port", schema)
+
+    def test_plugin_diagnostics_use_a_rotating_file_with_automatic_retention(self):
+        from astrbot_plugin_anime.diagnostics import configure_plugin_logging
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = configure_plugin_logging(Path(directory), retention_days=7)
+            self.assertEqual(path.name, "anime.log")
+            logger = __import__("logging").getLogger("astrbot_plugin_anime")
+            handlers = [handler for handler in logger.handlers if getattr(handler, "baseFilename", "") == str(path)]
+            try:
+                self.assertEqual(len(handlers), 1)
+                self.assertEqual(handlers[0].backupCount, 7)
+            finally:
+                for handler in handlers:
+                    logger.removeHandler(handler)
+                    handler.close()
 
     async def test_sub_registers_and_whitelists_before_works_are_chosen(self):
         from astrbot_plugin_anime.main import AnimePlugin

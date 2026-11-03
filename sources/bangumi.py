@@ -5,9 +5,28 @@ from datetime import date
 from typing import Any
 from urllib.parse import urlencode
 
+from ..diagnostics import get_plugin_logger
 from .base import SourceAdapter, SourceResult
 from .helpers import make_schedule, season_year_month
 from ..models import SourceRecord
+
+
+logger = get_plugin_logger()
+
+
+def normalize_proxy_url(host: Any, port: Any) -> str | None:
+    host = str(host or "").strip()
+    if not host:
+        return None
+    try:
+        port = int(port)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Bangumi proxy port must be an integer from 1 to 65535") from exc
+    if not 1 <= port <= 65535:
+        raise ValueError("Bangumi proxy port must be an integer from 1 to 65535")
+    if "://" not in host:
+        host = f"http://{host}"
+    return f"{host.rstrip('/')}:{port}"
 
 
 def _region(tags: list[dict[str, Any]]) -> str:
@@ -81,10 +100,11 @@ class BangumiAdapter(SourceAdapter):
     name = "bangumi"
     base_url = "https://api.bgm.tv/v0/subjects"
 
-    def __init__(self, session: Any = None, api_token: str = ""):
+    def __init__(self, session: Any = None, api_token: str = "", proxy_host: Any = "", proxy_port: Any = 0):
         super().__init__(session)
         self.api_token = api_token.strip()
         self.exclude_r18 = False
+        self.proxy_url = normalize_proxy_url(proxy_host, proxy_port)
 
     def _headers(self) -> dict[str, str]:
         headers = {"User-Agent": "yano486/astrbot_plugin_anime/0.2 (https://github.com/yano486/astrbot_plugin_anime)"}
@@ -102,7 +122,9 @@ class BangumiAdapter(SourceAdapter):
             while total is None or offset < min(total, 500):
                 query = urlencode({"type": 2, "year": year, "month": month, "sort": "date", "limit": 100, "offset": offset})
                 url = f"{self.base_url}?{query}"
-                async with self.session.get(url, headers=self._headers()) as response:
+                request_kwargs = {"proxy": self.proxy_url} if self.proxy_url else {}
+                logger.info("[anime] Bangumi 请求 %s%s", url, "（使用代理）" if self.proxy_url else "")
+                async with self.session.get(url, headers=self._headers(), **request_kwargs) as response:
                     if response.status != 200:
                         return SourceResult(self.name, status="error", error=f"HTTP {response.status}", source_url=url)
                     payload = await response.json()
@@ -116,6 +138,7 @@ class BangumiAdapter(SourceAdapter):
                     break
             return SourceResult(self.name, records, self.base_url)
         except Exception as exc:
+            logger.error("[anime] Bangumi 请求失败 %s-%02d：%s: %s", year, month, type(exc).__name__, exc)
             return SourceResult(self.name, status="error", error=f"{type(exc).__name__}: {exc}", source_url=self.base_url)
 
     async def fetch(self, season: str) -> SourceResult:

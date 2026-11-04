@@ -280,6 +280,32 @@ test('catalog actions use a fixed bottom dock with compact inline status', () =>
   assert.doesNotMatch(styles, /\.status-notice\{/);
 });
 
+test('bottom status message can expand within the fixed target row', () => {
+  assert.match(styles, /\.status-inline\{[^}]*flex:\s*1 1 360px/s);
+  assert.match(styles, /\.status-inline\{[^}]*max-width:none/s);
+  assert.doesNotMatch(styles, /\.status-inline\{[^}]*max-width:260px/);
+  assert.match(styles, /@media\(max-width:650px\)\{\.catalog-command-row \.target-row \.status-inline\{flex-basis:100%\}/);
+});
+
+test('calendar month navigation restores focus after rerendering month buttons', () => {
+  assert.match(controls, /function renderCalendar\(control, restoreFocus = ""\)/);
+  assert.match(controls, /renderCalendar\(control, "previous"\)/);
+  assert.match(controls, /renderCalendar\(control, "next"\)/);
+  assert.match(controls, /focus\(\{ preventScroll: true \}\)/);
+});
+
+test('fetch button keeps readable foreground colors in both themes', () => {
+  assert.match(markup, /id="refresh"[^>]*>获取番表</);
+  assert.match(styles, /\.button-dark\{color:#fff\}/);
+  assert.match(styles, /html\[data-theme="dark"\] \.button-dark\{[^}]*color:#182526/);
+});
+
+test('weekday buttons receive more toolbar width than adaptation and year filters', () => {
+  assert.ok(styles.includes('.toolbar{grid-template-columns:minmax(115px,1fr) minmax(80px,.75fr) minmax(250px,1.8fr) minmax(100px,.7fr) minmax(90px,.65fr) minmax(100px,.8fr)'));
+  assert.match(styles, /\.weekday-buttons button\{[^}]*min-height:42px/);
+  assert.ok(styles.includes('.toolbar .weekday-filter{grid-column:1/-1}'));
+});
+
 test('empty future sources produce a compact fetch result instead of an error toast', () => {
   const app = setup(async () => ({}));
   const message = app.run('state.sources = {bangumi:{status:"ok",count:100}, bgmlist:{status:"empty"}, yuc:{status:"empty"}}; sourceFailureNotice()');

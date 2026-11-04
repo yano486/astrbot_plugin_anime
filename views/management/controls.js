@@ -151,7 +151,7 @@
     if (restoreFocus) control.trigger.focus();
   }
 
-  function renderCalendar(control) {
+  function renderCalendar(control, restoreFocus = "") {
     const { source, popup } = control;
     const doc = source.ownerDocument;
     popup.replaceChildren();
@@ -207,14 +207,18 @@
     popup.append(grid);
     previous.addEventListener("click", () => {
       control.monthCursor = new Date(control.monthCursor.getFullYear(), control.monthCursor.getMonth() - 1, 1);
-      renderCalendar(control);
+      renderCalendar(control, "previous");
       positionPopover(control);
     });
     next.addEventListener("click", () => {
       control.monthCursor = new Date(control.monthCursor.getFullYear(), control.monthCursor.getMonth() + 1, 1);
-      renderCalendar(control);
+      renderCalendar(control, "next");
       positionPopover(control);
     });
+    if (restoreFocus) {
+      const label = restoreFocus === "previous" ? "上个月" : "下个月";
+      popup.querySelector(`[aria-label="${label}"]`)?.focus({ preventScroll: true });
+    }
   }
 
   function refreshDate(source) {

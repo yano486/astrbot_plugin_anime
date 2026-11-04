@@ -150,6 +150,14 @@ test('early access type targets the next quarter and keeps only supported filter
   assert.match(source, /type === "preview"/);
 });
 
+test('early access mode keeps TV and WEB items instead of treating preview as an item type', () => {
+  const app = setup(async () => ({}));
+  assert.equal(app.run('matchesCatalogType("tv", "preview")'), true);
+  assert.equal(app.run('matchesCatalogType("web", "preview")'), true);
+  assert.equal(app.run('matchesCatalogType("tv", "tv")'), true);
+  assert.equal(app.run('matchesCatalogType("web", "tv")'), false);
+});
+
 test('season choices show the previous, current, and next quarter without a duplicate masthead control', () => {
   const app = setup(async () => ({}));
   const values = app.run('seasonPeriodOptions(new Date(2026,10,4)).map(option => option.value).join(",")');
@@ -239,12 +247,19 @@ test('catalog places the push target row beside search and keeps filters in the 
   assert.doesNotMatch(markup, /class="toolbar"[\s\S]*class="search"/);
 });
 
-test('catalog actions use a fixed bottom dock and status is a right-side toast', () => {
+test('catalog actions use a fixed bottom dock with compact inline status', () => {
   assert.match(markup, /id="save-status"/);
+  assert.match(markup, /class="target-row"[\s\S]*id="save-status"/);
   assert.doesNotMatch(markup, /dismiss-status/);
   assert.match(styles, /\.catalog-command-row\{[^}]*position:fixed/);
-  assert.match(styles, /\.status-notice\{[^}]*right:18px/);
-  assert.match(styles, /status-notice/);
+  assert.match(styles, /\.status-inline\{/);
+  assert.doesNotMatch(styles, /\.status-notice\{/);
+});
+
+test('empty future sources produce a compact fetch result instead of an error toast', () => {
+  const app = setup(async () => ({}));
+  const message = app.run('state.sources = {bangumi:{status:"ok",count:100}, bgmlist:{status:"empty"}, yuc:{status:"empty"}}; sourceFailureNotice()');
+  assert.equal(message, '已获取番表；bgmlist暂无数据、yuc暂无数据');
 });
 
 test('catalog fetch action is labelled as getting the schedule', () => {

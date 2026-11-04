@@ -93,7 +93,7 @@ class BgmlistAdapter(SourceAdapter):
                 requests.append(fetch_month_file(url))
             for batch in await asyncio.gather(*requests):
                 records.extend(batch)
-            return SourceResult(self.name, records, ",".join(urls), "ok" if records else "error", "" if records else "no quarter data")
+            return SourceResult(self.name, records, ",".join(urls), "ok" if records else "empty")
         except Exception as exc:
             return SourceResult(self.name, status="error", error=f"{type(exc).__name__}: {exc}", source_url=",".join(urls))
 

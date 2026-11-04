@@ -67,11 +67,13 @@ class YucAdapter(SourceAdapter):
             return SourceResult(self.name, status="error", error="session unavailable", source_url=url)
         try:
             async with self.session.get(url, headers={"User-Agent": "astrbot_plugin_anime/0.1"}) as response:
+                if response.status == 404:
+                    return SourceResult(self.name, status="empty", source_url=url)
                 if response.status != 200:
                     return SourceResult(self.name, status="error", error=f"HTTP {response.status}", source_url=url)
                 html = await response.text()
                 records = parse_yuc_html(html, season, url)
-                return SourceResult(self.name, records, url, "ok" if records else "error", "" if records else "schedule structure not found")
+                return SourceResult(self.name, records, url, "ok" if records else "empty")
         except Exception as exc:
             return SourceResult(self.name, status="error", error=str(exc), source_url=url)
 

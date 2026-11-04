@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 from pathlib import Path
 import unittest
 
@@ -86,6 +87,22 @@ class SourceParserTests(unittest.TestCase):
         self.assertEqual(parse_yuc_html("<html><body>blocked</body></html>"), [])
         self.assertEqual(parse_acgsecrets_html("<html><body>blocked</body></html>"), [])
         self.assertEqual(parse_youranimes_html("<html><body>blocked</body></html>"), [])
+
+    def test_yuc_404_is_reported_as_no_data_for_future_quarters(self) -> None:
+        from astrbot_plugin_anime.sources.yuc import YucAdapter
+
+        class Response:
+            status = 404
+
+            async def __aenter__(self): return self
+            async def __aexit__(self, *args): return None
+
+        class Session:
+            def get(self, *args, **kwargs): return Response()
+
+        result = asyncio.run(YucAdapter(Session()).fetch("2027-01"))
+        self.assertEqual(result.status, "empty")
+        self.assertEqual(result.error, "")
 
 
 if __name__ == "__main__":

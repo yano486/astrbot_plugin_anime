@@ -40,6 +40,7 @@
         <span>先在机器人会话中执行 <code>/anime绑定</code></span>
         <button class="button button-quiet" id="load-subs">读取订阅</button>
         <button class="button button-accent" id="save-subs">保存所选订阅</button>
+        <span id="save-status" class="status-inline" role="status" hidden><span class="status-inline-text"></span></span>
       </section>
     </section>
 
@@ -87,9 +88,6 @@
 
     <footer><span>排期仅代表来源记录，不等于视频实际上线。</span></footer>
   </main>
-  <div id="save-status" class="status-notice" role="status" hidden>
-    <span class="status-notice-text"></span>
-  </div>
   <script src="./bridge.js"></script>
   <script src="./controls.js"></script>
   <script type="module" src="./app.js"></script>

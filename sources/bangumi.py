@@ -122,6 +122,8 @@ class BangumiAdapter(SourceAdapter):
                 request_kwargs = {"proxy": self.proxy_url} if self.proxy_url else {}
                 logger.info("[anime] Bangumi 请求 %s%s", url, "（使用代理）" if self.proxy_url else "")
                 async with self.session.get(url, headers=self._headers(), **request_kwargs) as response:
+                    if response.status == 404:
+                        return SourceResult(self.name, status="empty", source_url=url)
                     if response.status != 200:
                         return SourceResult(self.name, status="error", error=f"HTTP {response.status}", source_url=url)
                     payload = await response.json()
@@ -133,7 +135,7 @@ class BangumiAdapter(SourceAdapter):
                 offset += 100
                 if not batch:
                     break
-            return SourceResult(self.name, records, self.base_url)
+            return SourceResult(self.name, records, self.base_url, "ok" if records else "empty")
         except Exception as exc:
             logger.error("[anime] Bangumi 请求失败 %s-%02d：%s: %s", year, month, type(exc).__name__, exc)
             return SourceResult(self.name, status="error", error=f"{type(exc).__name__}: {exc}", source_url=self.base_url)
@@ -158,9 +160,9 @@ class BangumiAdapter(SourceAdapter):
             statuses[period] = result.error if result.status == "error" else result.status
             if result.status == "ok":
                 records.extend(result.records)
-        if not records and any(value == "error" for value in statuses.values()):
+        if not records and any(value not in {"ok", "empty"} for value in statuses.values()):
             return SourceResult(self.name, status="error", error=f"monthly query failures: {statuses}", source_url=self.base_url)
-        return SourceResult(self.name, records, self.base_url, "ok" if records else "error", "" if records else f"no quarter data: {statuses}")
+        return SourceResult(self.name, records, self.base_url, "ok" if records else "empty")
 
     async def fetch_movies(self, today: date) -> SourceResult:
         records: list[SourceRecord] = []

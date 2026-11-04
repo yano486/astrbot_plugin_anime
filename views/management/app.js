@@ -150,10 +150,10 @@ function syncWeekdayButtons() {
 
 function setStatus(message, kind = "") {
   const notice = $("#save-status");
-  const text = notice.querySelector?.(".status-notice-text");
+  const text = notice.querySelector?.(".status-inline-text");
   if (text) text.textContent = message;
   else notice.textContent = message;
-  notice.className = `status-notice ${kind}`.trim();
+  notice.className = `status-inline ${kind}`.trim();
   notice.hidden = !message;
 }
 
@@ -208,13 +208,14 @@ function renderSources() {
   Object.entries(sources).forEach(([name, result]) => {
     const chip = document.createElement("span");
     chip.className = `source-chip ${result.status === "error" || result.error ? "error" : ""}`;
-    chip.textContent = `${name} ${result.status === "error" ? "失败" : result.error ? "部分" : `${result.count || 0} 条`}`;
+    chip.textContent = `${name} ${result.status === "error" ? "失败" : result.status === "empty" ? "暂无数据" : result.error ? "部分" : `${result.count || 0} 条`}`;
     chip.title = result.error || result.source_url || ""; container.append(chip);
   });
 }
 
 function sourceFailureNotice() {
-  const failures = Object.entries({...state.sources, ...Object.fromEntries(Object.entries(state.movieSources || {}).map(([name, value]) => [`剧场版/OVA · ${name}`, value]))})
+  const sourceEntries = Object.entries({...state.sources, ...Object.fromEntries(Object.entries(state.movieSources || {}).map(([name, value]) => [`剧场版/OVA · ${name}`, value]))});
+  const failures = sourceEntries
     .filter(([, result]) => result.status === "error" || result.error)
     .map(([name, result]) => {
       const error = String(result.error || "");
@@ -223,12 +224,18 @@ function sourceFailureNotice() {
       if (/HTTP/i.test(error)) return `${name} 返回网络错误`;
       return `${name} 未完整返回`;
     });
-  return failures.length ? `部分来源未完成：${failures.join("、")}，已保留可用结果` : "";
+  if (failures.length) return `部分来源未完成：${failures.join("、")}，已保留可用结果`;
+  const empty = sourceEntries.filter(([, result]) => result.status === "empty").map(([name]) => `${name}暂无数据`);
+  return empty.length ? `已获取番表；${empty.join("、")}` : "";
 }
 
 function visibleCatalogItems() {
   if (!state.showSubscribedOnly) return state.items;
   return state.items.filter(item => state.subscriptions.get(item.key)?.enabled === true);
+}
+
+function matchesCatalogType(itemType, selectedType) {
+  return !selectedType || selectedType === "preview" || itemType === selectedType;
 }
 
 function syncSubscriptionButton() {
@@ -246,7 +253,7 @@ function render() {
     if (region === "jp" && item.region !== "jp") return false;
     if (region === "mixed" && item.region !== "mixed") return false;
     if (region === "unknown" && !["unknown", "mixed"].includes(item.region)) return false;
-    if (type && item.item_type !== type) return false;
+    if (!matchesCatalogType(item.item_type, type)) return false;
     if (weekday && !movie && !(item.schedules || []).some(s => s.weekday === weekday)) return false;
     if (role && !movie && item.season_role !== role) return false;
     if (!matchesCatalogPeriod(item, type, period)) return false;
@@ -555,6 +562,17 @@ async function refreshAll() {
   }
 }
 
+async function loadPreviewAfterTypeChange() {
+  const type = $("#type").value;
+  configurePeriodControl();
+  try {
+    await loadItems(type === "preview");
+    if (type === "preview") setStatus(sourceFailureNotice() || "已获取新番抢先看", "notice-success");
+  } catch (error) {
+    setStatus(`获取失败：${naturalError(error)}`, "notice-error");
+  }
+}
+
 function naturalError(error) {
   const message = String(error?.message || error || "未知错误");
   if (/429|限流|too many/i.test(message)) return "来源暂时限流，请稍后再获取";
@@ -576,7 +594,7 @@ async function init() {
       render();
     }));
     $("#target").addEventListener("change", () => { state.showSubscribedOnly = false; syncSubscriptionButton(); });
-    $("#type").addEventListener("change", () => { const type = $("#type").value; configurePeriodControl(); loadItems(type === "preview"); });
+    $("#type").addEventListener("change", loadPreviewAfterTypeChange);
     $("#period").addEventListener("change", () => {
       state.periodSelections[state.periodMode] = $("#period").value;
       loadItems(false);

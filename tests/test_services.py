@@ -20,6 +20,36 @@ class FakeAdapter:
 
 
 class RefreshTests(unittest.TestCase):
+    def test_simultaneous_refreshes_for_the_same_season_share_one_source_fetch(self) -> None:
+        class SlowAdapter:
+            name = "slow"
+
+            def __init__(self):
+                self.calls = 0
+                self.started = asyncio.Event()
+                self.release = asyncio.Event()
+
+            async def fetch(self, season):
+                self.calls += 1
+                self.started.set()
+                await self.release.wait()
+                return SourceResult(self.name, [])
+
+        async def run():
+            with tempfile.TemporaryDirectory() as directory:
+                adapter = SlowAdapter()
+                service = RefreshService(None, JsonStore(Path(directory) / "state.json"), [adapter])
+                first = asyncio.create_task(service.refresh("2026-10"))
+                await adapter.started.wait()
+                second = asyncio.create_task(service.refresh("2026-10"))
+                await asyncio.sleep(0)
+                adapter.release.set()
+                return await asyncio.gather(first, second), adapter.calls
+
+        results, calls = asyncio.run(run())
+        self.assertEqual(calls, 1)
+        self.assertEqual(results[0]["sources"], results[1]["sources"])
+
     def test_default_adapters_pause_acgsecrets_and_youranimes(self) -> None:
         service = RefreshService(None, JsonStore(Path("unused.json")))
         self.assertEqual({adapter.name for adapter in service.adapters}, {"bangumi", "bgmlist", "yuc"})

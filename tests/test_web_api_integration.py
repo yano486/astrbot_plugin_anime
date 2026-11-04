@@ -10,6 +10,48 @@ from astrbot_plugin_anime.web_api import AnimeWebAPI
 
 
 class WebApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_astrbot_and_remote_servers_register_the_same_api_routes(self):
+        from astrbot_plugin_anime.web_api import API_ROUTE_DEFINITIONS
+        from astrbot_plugin_anime.web_server import create_remote_web_app
+
+        class Context:
+            def __init__(self):
+                self.registered = []
+
+            def register_web_api(self, path, handler, methods, description):
+                self.registered.extend((path, method) for method in methods)
+
+        class Plugin:
+            def __init__(self):
+                self.context = Context()
+                self.remote_webui_enabled = True
+                self.remote_webui_password_enabled = False
+                self.remote_webui_url = ""
+
+        plugin = Plugin()
+        api = AnimeWebAPI(plugin)
+        plugin.web_api = api
+        api.register()
+        expected = {
+            (f"/astrbot_plugin_anime/{endpoint}", method)
+            for endpoint, _, methods, _ in API_ROUTE_DEFINITIONS
+            for method in methods
+        }
+        self.assertEqual(set(plugin.context.registered), expected)
+
+        remote_app = create_remote_web_app(plugin, "")
+        remote_routes = {
+            (route.resource.canonical.removeprefix("/api"), route.method)
+            for route in remote_app.router.routes()
+            if route.resource.canonical.startswith("/api/")
+            and route.resource.canonical not in ("/api/login", "/api/logout")
+        }
+        self.assertEqual(remote_routes, {
+            (f"/{endpoint}", method)
+            for endpoint, _, methods, _ in API_ROUTE_DEFINITIONS
+            for method in methods
+        })
+
     async def test_all_period_returns_cached_anime_across_seasons(self):
         with tempfile.TemporaryDirectory() as directory:
             store = JsonStore(Path(directory) / "state.json")

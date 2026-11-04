@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, Awaitable, Callable, Hashable
 
 from .diagnostics import get_plugin_logger
 from .merge import merge_records, unify_schedules
@@ -22,8 +22,12 @@ class RefreshService:
             BgmlistAdapter(session),
             YucAdapter(session),
         ]
+        self._inflight: dict[tuple[str, Hashable], asyncio.Task[Any]] = {}
 
     async def refresh(self, season: str) -> dict[str, Any]:
+        return await self._singleflight(("season", season), lambda: self._refresh(season))
+
+    async def _refresh(self, season: str) -> dict[str, Any]:
         logger.info("[anime] 开始获取季度番表：%s", season)
         preferences = self.store.get_preferences() if hasattr(self.store, "get_preferences") else {}
         self.bangumi.exclude_r18 = bool(preferences.get("exclude_r18", False))
@@ -87,6 +91,9 @@ class RefreshService:
         return {"items": items, "sources": status, "updated_at": self.store.state.get("updated_at", "")}
 
     async def refresh_movies(self, today: date):
+        return await self._singleflight(("movies", today), lambda: self._refresh_movies(today))
+
+    async def _refresh_movies(self, today: date):
         preferences = self.store.get_preferences() if hasattr(self.store, "get_preferences") else {}
         self.bangumi.exclude_r18 = bool(preferences.get("exclude_r18", False))
         result = await self.bangumi.fetch_movies(today)
@@ -120,4 +127,25 @@ class RefreshService:
         self.store.state["movie_catalog_scope"] = f"{today.year}-{last_year}"
         self.store.save()
         return {"items": items, "sources": {"bangumi": result}, "updated_at": self.store.state["movie_catalog_updated_at"]}
+
+    async def _singleflight(
+        self,
+        key: tuple[str, Hashable],
+        operation: Callable[[], Awaitable[Any]],
+    ) -> Any:
+        task = self._inflight.get(key)
+        if task is not None and task.done():
+            self._discard_inflight(key, task)
+            task = None
+        if task is None:
+            task = asyncio.create_task(operation())
+            self._inflight[key] = task
+            task.add_done_callback(lambda completed: self._discard_inflight(key, completed))
+        return await asyncio.shield(task)
+
+    def _discard_inflight(self, key: tuple[str, Hashable], task: asyncio.Task[Any]) -> None:
+        if self._inflight.get(key) is task:
+            del self._inflight[key]
+        if not task.cancelled():
+            task.exception()
 

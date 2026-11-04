@@ -9,7 +9,13 @@ from zoneinfo import ZoneInfo
 from PIL import Image
 
 from astrbot_plugin_anime.models import AnimeItem, Schedule
-from astrbot_plugin_anime.push_tables import airings_between, upcoming_movies, render_airings_image, render_notification_card
+from astrbot_plugin_anime.push_tables import (
+    airings_between,
+    cleanup_generated_tables,
+    upcoming_movies,
+    render_airings_image,
+    render_notification_card,
+)
 
 
 class PushTableTests(unittest.TestCase):
@@ -66,6 +72,27 @@ class PushTableTests(unittest.TestCase):
                 with Image.open(path) as image:
                     self.assertEqual(image.format, "PNG")
                     self.assertGreater(image.width, 500)
+
+    def test_generated_table_cleanup_removes_only_expired_plugin_pngs(self) -> None:
+        import os
+
+        now = datetime(2026, 11, 4).timestamp()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            expired = root / ("a" * 32 + ".png")
+            recent = root / ("b" * 32 + ".png")
+            unrelated = root / "keep.png"
+            for path in (expired, recent, unrelated):
+                path.write_bytes(b"test")
+            os.utime(expired, (now - 8 * 86400, now - 8 * 86400))
+            os.utime(recent, (now - 60, now - 60))
+
+            removed = cleanup_generated_tables(root, now=now)
+
+            self.assertEqual(removed, 1)
+            self.assertFalse(expired.exists())
+            self.assertTrue(recent.exists())
+            self.assertTrue(unrelated.exists())
 
 
 if __name__ == "__main__":

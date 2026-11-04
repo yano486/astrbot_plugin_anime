@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
+import io
+import logging
 import unittest
 from zoneinfo import ZoneInfo
 
 from astrbot_plugin_anime.models import AnimeItem, Schedule, Subscription, Target
+from astrbot_plugin_anime import scheduler as scheduler_module
 from astrbot_plugin_anime.scheduler import ReminderScheduler
 
 
@@ -32,6 +35,97 @@ class FakeStore:
 
 
 class SchedulerTests(unittest.TestCase):
+    def test_scheduler_loop_continues_after_a_cycle_raises(self) -> None:
+        async def run():
+            item = AnimeItem(key="anime:loop", title="Test")
+            sub = Subscription("group:loop", item.key)
+            scheduler = ReminderScheduler(FakeStore(item, sub), lambda *_: asyncio.sleep(0), interval=0.001)
+            calls = 0
+
+            async def check_once(now=None):
+                nonlocal calls
+                calls += 1
+                if calls == 1:
+                    raise RuntimeError("temporary store failure")
+                scheduler._stopped.set()
+                return 0
+
+            scheduler.check_once = check_once
+            await scheduler._run()
+            return calls
+
+        logger = scheduler_module.logger
+        handler = logging.StreamHandler(io.StringIO())
+        previous_level = logger.level
+        logger.setLevel(logging.ERROR)
+        logger.addHandler(handler)
+        try:
+            calls = asyncio.run(run())
+            logs = handler.stream.getvalue()
+        finally:
+            logger.removeHandler(handler)
+            logger.setLevel(previous_level)
+        self.assertEqual(calls, 2)
+        self.assertIn("scheduler cycle failed", logs)
+
+    def test_delivery_exception_is_logged_and_receipt_is_not_written(self) -> None:
+        item = AnimeItem(
+            key="anime:delivery",
+            title="Test",
+            schedules=[Schedule(weekday=2, hour=22, minute=0, raw_time="22:00", source="fixture")],
+        )
+        store = FakeStore(item, Subscription("group:delivery", item.key, lead_minutes=0))
+
+        async def fail_delivery(target, message):
+            raise RuntimeError("network unavailable")
+
+        logger = scheduler_module.logger
+        handler = logging.StreamHandler(io.StringIO())
+        previous_level = logger.level
+        logger.setLevel(logging.ERROR)
+        logger.addHandler(handler)
+        try:
+            count = asyncio.run(ReminderScheduler(store, fail_delivery).check_once(
+                datetime(2026, 11, 3, 21, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+            ))
+            logs = handler.stream.getvalue()
+        finally:
+            logger.removeHandler(handler)
+            logger.setLevel(previous_level)
+
+        self.assertEqual(count, 0)
+        self.assertEqual(store.state["receipts"], [])
+        self.assertIn("reminder delivery failed", logs)
+
+    def test_delivery_false_return_is_logged_and_receipt_is_not_written(self) -> None:
+        item = AnimeItem(
+            key="anime:not-sent",
+            title="Test",
+            schedules=[Schedule(weekday=2, hour=22, minute=0, raw_time="22:00", source="fixture")],
+        )
+        store = FakeStore(item, Subscription("group:not-sent", item.key, lead_minutes=0))
+
+        async def reject_delivery(target, message):
+            return False
+
+        logger = scheduler_module.logger
+        handler = logging.StreamHandler(io.StringIO())
+        previous_level = logger.level
+        logger.setLevel(logging.ERROR)
+        logger.addHandler(handler)
+        try:
+            count = asyncio.run(ReminderScheduler(store, reject_delivery).check_once(
+                datetime(2026, 11, 3, 21, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+            ))
+            logs = handler.stream.getvalue()
+        finally:
+            logger.removeHandler(handler)
+            logger.setLevel(previous_level)
+
+        self.assertEqual(count, 0)
+        self.assertEqual(store.state["receipts"], [])
+        self.assertIn("reminder delivery was not accepted", logs)
+
     def test_due_lead_reminder_sends_once_and_records_receipt(self) -> None:
         schedule = Schedule(weekday=2, hour=22, minute=0, raw_time="22:00", source="fixture")
         item = AnimeItem(key="bangumi:1", title="Test", title_cn="测试", schedules=[schedule], sources=["fixture"], data_status="ok")

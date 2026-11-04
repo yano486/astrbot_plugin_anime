@@ -4,8 +4,13 @@ import asyncio
 from datetime import date, datetime, time, timedelta
 from typing import Any, Awaitable, Callable
 
+from .diagnostics import get_plugin_logger
 from .models import AnimeItem, Subscription
+from .schedule_utils import schedule_sort_key
 from .time_utils import BJ, next_schedule_occurrence
+
+
+logger = get_plugin_logger()
 
 
 class ReminderScheduler:
@@ -33,7 +38,12 @@ class ReminderScheduler:
 
     async def _run(self) -> None:
         while not self._stopped.is_set():
-            await self.check_once(datetime.now(BJ))
+            try:
+                await self.check_once(datetime.now(BJ))
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("[anime] scheduler cycle failed")
             try:
                 await asyncio.wait_for(self._stopped.wait(), timeout=self.interval)
             except asyncio.TimeoutError:
@@ -67,7 +77,7 @@ class ReminderScheduler:
                 schedule_entries = [(None, occurrence)] if occurrence else []
             else:
                 if item.data_status == "conflict" and schedules:
-                    schedules = [min(schedules, key=_schedule_sort_key)]
+                    schedules = [min(schedules, key=schedule_sort_key)]
                 schedule_entries = [(schedule, None) for schedule in schedules]
             for schedule, fixed_occurrence in schedule_entries:
                 grace = timedelta(seconds=max(120, self.interval * 2))
@@ -92,10 +102,25 @@ class ReminderScheduler:
                         movie_date_only,
                         preferences.get("display_timezone", "Asia/Shanghai"),
                     )
+                    delivery_exception = False
                     try:
                         success = await self.deliver(sub.target_id, message)
                     except Exception:
+                        delivery_exception = True
+                        logger.exception(
+                            "[anime] reminder delivery failed: target=%s anime=%s kind=%s",
+                            sub.target_id,
+                            item.key,
+                            kind,
+                        )
                         success = False
+                    if not success and not delivery_exception:
+                        logger.error(
+                            "[anime] reminder delivery was not accepted: target=%s anime=%s kind=%s",
+                            sub.target_id,
+                            item.key,
+                            kind,
+                        )
                     if success:
                         self.store.add_receipt(key)
                         self.store.save()
@@ -144,10 +169,3 @@ def _release_occurrence(value: str, timezone_name: str = "Asia/Shanghai") -> dat
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=BJ)
     return parsed.astimezone(BJ)
-
-
-def _schedule_sort_key(schedule: Any) -> tuple[int, int]:
-    day_offset, clock_minutes = divmod(schedule.hour * 60 + schedule.minute, 24 * 60)
-    weekday = (schedule.weekday - 1 + day_offset) % 7
-    return weekday, clock_minutes
-

@@ -8,6 +8,18 @@ from .time_utils import BJ
 
 SCHEDULE_SOURCES = {"earliest", "yuc", "bgmlist", "bangumi"}
 DISPLAY_TIMEZONES = {"Asia/Shanghai", "Asia/Tokyo"}
+API_ROUTE_DEFINITIONS = (
+    ("status", "status", ("GET",), "Anime plugin status"),
+    ("preferences", "preferences", ("GET", "POST"), "Schedule and display preferences"),
+    ("items", "items", ("GET",), "Anime catalog"),
+    ("targets", "targets", ("GET",), "Bound targets"),
+    ("targets/umo", "add_umo_target", ("POST",), "Add AstrBot UMO target"),
+    ("targets/whitelist", "update_whitelist", ("POST",), "Update target whitelist"),
+    ("subscriptions", "subscriptions", ("GET", "POST"), "Anime subscriptions"),
+    ("movie-release", "movie_release", ("POST",), "Set movie release time"),
+    ("test-push", "test_push", ("POST",), "Send a test message"),
+    ("refresh", "refresh", ("POST",), "Refresh catalog"),
+)
 
 
 def validate_preferences(payload: Any) -> dict[str, Any]:
@@ -140,20 +152,13 @@ class AnimeWebAPI:
     def register(self) -> None:
         context = self.plugin.context
         base = "/astrbot_plugin_anime"
-        routes = [
-            ("/status", self.status, ["GET"], "Anime plugin status"),
-            ("/preferences", self.preferences, ["GET", "POST"], "Schedule and display preferences"),
-            ("/items", self.items, ["GET"], "Anime catalog"),
-            ("/targets", self.targets, ["GET"], "Bound targets"),
-            ("/targets/umo", self.add_umo_target, ["POST"], "Add AstrBot UMO target"),
-            ("/targets/whitelist", self.update_whitelist, ["POST"], "Update target whitelist"),
-            ("/subscriptions", self.subscriptions, ["GET", "POST"], "Anime subscriptions"),
-            ("/movie-release", self.movie_release, ["POST"], "Set movie release time"),
-            ("/test-push", self.test_push, ["POST"], "Send a test message"),
-            ("/refresh", self.refresh, ["POST"], "Refresh catalog"),
-        ]
-        for suffix, handler, methods, desc in routes:
-            context.register_web_api(base + suffix, handler, methods, desc)
+        for endpoint, handler_name, methods, description in API_ROUTE_DEFINITIONS:
+            context.register_web_api(
+                f"{base}/{endpoint}",
+                getattr(self, handler_name),
+                list(methods),
+                description,
+            )
 
     async def execute(self, endpoint: str, method: str, query: Any, payload: Any = None) -> tuple[int, dict[str, Any]]:
         try:

@@ -5,6 +5,7 @@ import unicodedata
 from collections import defaultdict
 
 from .models import AnimeItem, SourceRecord, utc_now_iso
+from .schedule_utils import schedule_sort_key
 from .sources.helpers import ADAPTATION_TYPE_ORDER, adaptation_types as extract_adaptation_types
 
 
@@ -80,17 +81,11 @@ def _season_role(records: list[SourceRecord], season: str) -> str:
     return "continuing" if min(start_dates) < season_start else "new"
 
 
-def _schedule_key(schedule) -> tuple[int, int]:
-    day_offset, clock_minutes = divmod(schedule.hour * 60 + schedule.minute, 24 * 60)
-    weekday = (schedule.weekday - 1 + day_offset) % 7
-    return weekday, clock_minutes
-
-
 def unify_schedules(schedules: list, schedule_source: str = "earliest") -> tuple[list, str]:
     unique = []
     seen = set()
     for schedule in schedules:
-        identity = (*_schedule_key(schedule), schedule.source)
+        identity = (*schedule_sort_key(schedule), schedule.source)
         if identity not in seen:
             unique.append(schedule)
             seen.add(identity)
@@ -108,8 +103,8 @@ def unify_schedules(schedules: list, schedule_source: str = "earliest") -> tuple
         unique = selected_source
     if not unique:
         return [], ""
-    selected = min(unique, key=_schedule_key)
-    if len({_schedule_key(schedule) for schedule in unique}) == 1:
+    selected = min(unique, key=schedule_sort_key)
+    if len({schedule_sort_key(schedule) for schedule in unique}) == 1:
         return [selected], ""
     alternatives = "、".join(
         f"{schedule.source} {schedule.hour:02d}:{schedule.minute:02d} JST"

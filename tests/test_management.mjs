@@ -296,12 +296,14 @@ test('calendar month navigation restores focus after rerendering month buttons',
 
 test('fetch button keeps readable foreground colors in both themes', () => {
   assert.match(markup, /id="refresh"[^>]*>获取番表</);
-  assert.match(styles, /\.button-dark\{color:#fff\}/);
+  assert.match(styles, /\.mast-actions\s+#refresh\{[^}]*color:#fff/s);
   assert.match(styles, /html\[data-theme="dark"\] \.button-dark\{[^}]*color:#182526/);
 });
 
 test('weekday buttons receive more toolbar width than adaptation and year filters', () => {
-  assert.ok(styles.includes('.toolbar{grid-template-columns:minmax(115px,1fr) minmax(80px,.75fr) minmax(250px,1.8fr) minmax(100px,.7fr) minmax(90px,.65fr) minmax(100px,.8fr)'));
+  assert.match(markup, /id="period-filter"/);
+  assert.ok(styles.includes('.toolbar{grid-template-columns:minmax(115px,.8fr) minmax(80px,.65fr) minmax(280px,2fr) minmax(90px,.55fr) minmax(90px,.55fr) minmax(90px,.65fr)'));
+  assert.match(styles, /\.toolbar #adaptation-filter,\.toolbar #period-filter\{max-width:145px\}/);
   assert.match(styles, /\.weekday-buttons button\{[^}]*min-height:42px/);
   assert.ok(styles.includes('.toolbar .weekday-filter{grid-column:1/-1}'));
 });

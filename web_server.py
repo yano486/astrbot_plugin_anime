@@ -11,6 +11,8 @@ from urllib.parse import urlsplit
 
 from aiohttp import web
 
+from .web_api import API_ROUTE_DEFINITIONS
+
 
 SESSION_COOKIE = "anime_session"
 SESSION_MAX_AGE = 8 * 60 * 60
@@ -93,19 +95,6 @@ def create_remote_web_app(plugin: Any, password: str) -> web.Application:
         return response
 
     app = web.Application(middlewares=[security], client_max_size=1024 * 1024)
-    endpoint_names = (
-        "status",
-        "preferences",
-        "items",
-        "targets",
-        "targets/umo",
-        "targets/whitelist",
-        "subscriptions",
-        "movie-release",
-        "test-push",
-        "refresh",
-    )
-
     def api_handler(endpoint: str):
         async def api(request: web.Request) -> web.Response:
             try:
@@ -177,8 +166,7 @@ def create_remote_web_app(plugin: Any, password: str) -> web.Application:
         response.del_cookie(SESSION_COOKIE, path="/")
         return response
 
-    for endpoint in endpoint_names:
-        methods = ("GET",) if endpoint in ("status", "items", "targets") else (("GET", "POST") if endpoint in ("subscriptions", "preferences") else ("POST",))
+    for endpoint, _, methods, _ in API_ROUTE_DEFINITIONS:
         for method in methods:
             app.router.add_route(method, f"/api/{endpoint}", api_handler(endpoint), name=f"api_{endpoint.replace('/', '_')}_{method.lower()}")
     app.router.add_post("/api/login", login)

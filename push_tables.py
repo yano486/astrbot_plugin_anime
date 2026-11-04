@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+import re
+import time as clock
+from stat import S_ISREG
 from typing import Iterable
 from zoneinfo import ZoneInfo
 
@@ -12,11 +15,38 @@ from .models import AnimeItem, Schedule
 from .time_utils import BJ, JST
 
 
+_GENERATED_TABLE_NAME = re.compile(r"[0-9a-f]{32}\.png\Z")
+
+
 @dataclass(frozen=True)
 class Airing:
     item: AnimeItem
     schedule: Schedule | None
     at: datetime
+
+
+def cleanup_generated_tables(
+    directory: Path,
+    *,
+    now: float | None = None,
+    retention_seconds: float = 7 * 86400,
+) -> int:
+    root = Path(directory)
+    if root.is_symlink() or not root.is_dir():
+        return 0
+    cutoff = (clock.time() if now is None else now) - max(0, retention_seconds)
+    removed = 0
+    for path in root.iterdir():
+        if not _GENERATED_TABLE_NAME.fullmatch(path.name):
+            continue
+        try:
+            file_stat = path.lstat()
+        except FileNotFoundError:
+            continue
+        if S_ISREG(file_stat.st_mode) and file_stat.st_mtime < cutoff:
+            path.unlink()
+            removed += 1
+    return removed
 
 
 def _first_occurrence(schedule: Schedule) -> datetime | None:

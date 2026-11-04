@@ -18,14 +18,14 @@ from .scheduler import ReminderScheduler
 from .services import RefreshService
 from .store import JsonStore
 from .web_api import AnimeWebAPI
-from .push_tables import Airing, airings_between, render_airings_image, render_weekly_image, render_notification_card, upcoming_movies
+from .push_tables import Airing, airings_between, cleanup_generated_tables, render_airings_image, render_weekly_image, render_notification_card, upcoming_movies
 from .time_utils import BJ, JST
 
 
 plugin_logger = get_plugin_logger()
 
 
-PLUGIN_VERSION = "0.2.11"
+PLUGIN_VERSION = "0.2.12"
 
 
 @register("astrbot_plugin_anime", "Aut-sep", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)
@@ -56,6 +56,7 @@ class AnimePlugin(Star):
     async def initialize(self) -> None:
         log_path = configure_plugin_logging(self.data_dir, astrbot_logger=logger)
         plugin_logger.info("[anime] 插件启动，日志文件：%s", log_path)
+        self._cleanup_generated_tables()
         self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=25))
         try:
             self.refresh_service = RefreshService(
@@ -202,6 +203,7 @@ class AnimePlugin(Star):
     async def _deliver_card(self, target_id: str, item, mode: str) -> bool:
         from uuid import uuid4
 
+        self._cleanup_generated_tables()
         path = self.data_dir / "push_tables" / f"{uuid4().hex}.png"
         preferences = self.store.get_preferences()
         try:
@@ -250,6 +252,7 @@ class AnimePlugin(Star):
     async def _send_airings_image(self, event: AstrMessageEvent, title: str, rows) -> Any:
         from uuid import uuid4
 
+        self._cleanup_generated_tables()
         path = self.data_dir / "push_tables" / f"{uuid4().hex}.png"
         try:
             preferences = self.store.get_preferences()
@@ -259,6 +262,15 @@ class AnimePlugin(Star):
             logger.error(f"[anime] 图表生成失败: {exc}")
             return event.plain_result(f"图片表生成失败：{exc}")
         return event.image_result(str(path))
+
+    def _cleanup_generated_tables(self) -> None:
+        try:
+            removed = cleanup_generated_tables(self.data_dir / "push_tables")
+        except OSError as exc:
+            plugin_logger.warning("[anime] 清理过期推送图片失败：%s", exc)
+            return
+        if removed:
+            plugin_logger.info("[anime] 已清理 %s 张过期推送图片", removed)
 
     @filter.command("anime")
     async def anime_command(self, event: AstrMessageEvent, action: str = ""):

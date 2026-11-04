@@ -12,20 +12,20 @@ from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, MessageChain, filter
 from astrbot.api.star import Context, Star, StarTools, register
 
-from .models import Target
-from .diagnostics import configure_plugin_logging, get_plugin_logger
-from .scheduler import ReminderScheduler
-from .services import RefreshService
-from .store import JsonStore
-from .web_api import AnimeWebAPI
-from .push_tables import Airing, airings_between, cleanup_generated_tables, render_airings_image, render_weekly_image, render_notification_card, upcoming_movies
-from .time_utils import BJ, JST
+from .core.models import Target
+from .core.diagnostics import configure_plugin_logging, get_plugin_logger
+from .services.scheduler import ReminderScheduler
+from .services.refresh import RefreshService
+from .core.store import JsonStore
+from .web.api import AnimeWebAPI
+from .rendering.push_tables import Airing, airings_between, cleanup_generated_tables, render_airings_image, render_weekly_image, render_notification_card, upcoming_movies
+from .core.time_utils import BJ, JST
 
 
 plugin_logger = get_plugin_logger()
 
 
-PLUGIN_VERSION = "0.2.12"
+PLUGIN_VERSION = "0.2.13"
 
 
 @register("astrbot_plugin_anime", "Aut-sep", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)
@@ -103,7 +103,7 @@ class AnimePlugin(Star):
             return
         configured_password = self.config.get("remote_webui_password", "")
         password = "" if configured_password is None else str(configured_password)
-        from .web_server import create_remote_web_app, validate_remote_password
+        from .web.server import create_remote_web_app, validate_remote_password
 
         try:
             password = validate_remote_password(password)

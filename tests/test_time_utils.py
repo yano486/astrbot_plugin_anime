@@ -3,14 +3,14 @@ from __future__ import annotations
 from datetime import datetime
 import unittest
 
-from astrbot_plugin_anime.time_utils import (
+from astrbot_plugin_anime.core.time_utils import (
     BJ,
     jst_weekday_time_to_beijing,
     next_occurrence,
     parse_broadcast_clock,
     next_schedule_occurrence,
 )
-from astrbot_plugin_anime.models import Schedule
+from astrbot_plugin_anime.core.models import Schedule
 
 
 class TimeUtilsTests(unittest.TestCase):

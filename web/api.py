@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from .models import Subscription
-from .time_utils import BJ
+from ..core.models import Subscription
+from ..core.time_utils import BJ
 
 SCHEDULE_SOURCES = {"earliest", "yuc", "bgmlist", "bangumi"}
 DISPLAY_TIMEZONES = {"Asia/Shanghai", "Asia/Tokyo"}
@@ -218,7 +218,7 @@ class AnimeWebAPI:
             if endpoint == "targets":
                 return 200, {"targets": [target.__dict__ for target in self.plugin.store.get_targets()]}
             if endpoint == "targets/umo":
-                from .models import Target
+                from ..core.models import Target
 
                 platform, message_type, session_id = validate_umo_target((payload or {}).get("umo"))
                 target_id = f"{platform}:{message_type}:{session_id}"

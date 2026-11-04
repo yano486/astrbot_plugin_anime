@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from astrbot_plugin_anime.web_api import validate_subscriptions
+from astrbot_plugin_anime.web.api import validate_subscriptions
 
 
 class WebValidationTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class WebValidationTests(unittest.TestCase):
         self.assertEqual(values[0].lead_minutes, 15)
 
     def test_schedule_and_display_preferences_are_validated(self) -> None:
-        from astrbot_plugin_anime.web_api import validate_preferences
+        from astrbot_plugin_anime.web.api import validate_preferences
 
         self.assertEqual(
             validate_preferences({"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo"}),
@@ -48,7 +48,7 @@ class WebValidationTests(unittest.TestCase):
             validate_preferences({"display_timezone": "UTC"})
 
     def test_r18_preference_must_be_boolean(self) -> None:
-        from astrbot_plugin_anime.web_api import validate_preferences
+        from astrbot_plugin_anime.web.api import validate_preferences
 
         self.assertEqual(
             validate_preferences({"exclude_r18": True}),
@@ -58,7 +58,7 @@ class WebValidationTests(unittest.TestCase):
             validate_preferences({"exclude_r18": "true"})
 
     def test_umo_target_requires_astrbot_three_part_format(self) -> None:
-        from astrbot_plugin_anime.web_api import validate_umo_target
+        from astrbot_plugin_anime.web.api import validate_umo_target
 
         self.assertEqual(validate_umo_target("default:FriendMessage:123456789"), ("default", "FriendMessage", "123456789"))
         self.assertEqual(validate_umo_target("bot:GroupMessage:group-42"), ("bot", "GroupMessage", "group-42"))
@@ -66,7 +66,7 @@ class WebValidationTests(unittest.TestCase):
             validate_umo_target("default:123456789")
 
     def test_movie_release_date_requires_a_real_catalog_item(self) -> None:
-        from astrbot_plugin_anime.web_api import validate_movie_release
+        from astrbot_plugin_anime.web.api import validate_movie_release
 
         key, release_at = validate_movie_release({"anime_key": "movie:1", "release_at": "2027-04-10"}, {"movie:1"})
         self.assertEqual((key, release_at), ("movie:1", "2027-04-10"))
@@ -79,19 +79,19 @@ class WebValidationTests(unittest.TestCase):
         self.assertEqual(validate_movie_release({"anime_key": "movie:1", "release_at": ""}, {"movie:1"}), ("movie:1", ""))
 
     def test_whitelist_change_requires_an_existing_bound_target(self) -> None:
-        from astrbot_plugin_anime.web_api import validate_whitelist_updates
+        from astrbot_plugin_anime.web.api import validate_whitelist_updates
 
         with self.assertRaisesRegex(ValueError, "unknown target"):
             validate_whitelist_updates({"targets": [{"target_id": "missing", "allowed": True}]}, {"group:1"})
 
     def test_subscription_activation_is_blocked_for_non_whitelisted_target(self) -> None:
-        from astrbot_plugin_anime.web_api import can_activate_target_subscription
+        from astrbot_plugin_anime.web.api import can_activate_target_subscription
 
         self.assertFalse(can_activate_target_subscription({"enabled": True, "whitelisted": False}))
         self.assertTrue(can_activate_target_subscription({"enabled": True, "whitelisted": True}))
 
     def test_saving_an_active_subscription_automatically_whitelists_target(self) -> None:
-        from astrbot_plugin_anime.web_api import subscription_target_state
+        from astrbot_plugin_anime.web.api import subscription_target_state
 
         values = validate_subscriptions(
             {"target_id": "x", "subscriptions": [{"anime_key": "a", "enabled": True}]},

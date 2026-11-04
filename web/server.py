@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 
 from aiohttp import web
 
-from .web_api import API_ROUTE_DEFINITIONS
+from .api import API_ROUTE_DEFINITIONS
 
 
 SESSION_COOKIE = "anime_session"
@@ -107,7 +107,7 @@ def create_remote_web_app(plugin: Any, password: str) -> web.Application:
         return api
 
     async def index(request: web.Request) -> web.FileResponse:
-        root = Path(__file__).parent / "views" / "management"
+        root = Path(__file__).parent.parent / "views" / "management"
         filename = "index.html" if request[AUTHENTICATED] else "login.html"
         response = web.FileResponse(root / filename)
         response.headers["Content-Type"] = "text/html; charset=utf-8"
@@ -115,7 +115,7 @@ def create_remote_web_app(plugin: Any, password: str) -> web.Application:
         return response
 
     async def asset(request: web.Request) -> web.StreamResponse:
-        root = (Path(__file__).parent / "views" / "management").resolve()
+        root = (Path(__file__).parent.parent / "views" / "management").resolve()
         path = (root / request.match_info["asset"]).resolve()
         if root not in path.parents or not path.is_file():
             raise web.HTTPNotFound()

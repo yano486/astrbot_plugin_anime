@@ -7,7 +7,7 @@ from support import install_astrbot_stubs
 
 install_astrbot_stubs()
 
-from astrbot_plugin_anime.store import JsonStore
+from astrbot_plugin_anime.core.store import JsonStore
 
 
 class RuntimeContractTests(unittest.IsolatedAsyncioTestCase):
@@ -28,7 +28,7 @@ class RuntimeContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("https://next.bgm.tv/demo/access-token", schema["bangumi_api_token"]["hint"])
 
     def test_plugin_diagnostics_use_a_rotating_file_with_automatic_retention(self):
-        from astrbot_plugin_anime.diagnostics import configure_plugin_logging
+        from astrbot_plugin_anime.core.diagnostics import configure_plugin_logging
 
         with tempfile.TemporaryDirectory() as directory:
             path = configure_plugin_logging(Path(directory), retention_days=7)
@@ -84,7 +84,7 @@ class RuntimeContractTests(unittest.IsolatedAsyncioTestCase):
 
     def test_old_catalog_with_retired_sources_is_refreshed_after_upgrade(self):
         from astrbot_plugin_anime.main import AnimePlugin
-        from astrbot_plugin_anime.models import AnimeItem
+        from astrbot_plugin_anime.core.models import AnimeItem
 
         with tempfile.TemporaryDirectory() as directory:
             plugin = object.__new__(AnimePlugin)

@@ -7,9 +7,9 @@ import logging
 import unittest
 from zoneinfo import ZoneInfo
 
-from astrbot_plugin_anime.models import AnimeItem, Schedule, Subscription, Target
-from astrbot_plugin_anime import scheduler as scheduler_module
-from astrbot_plugin_anime.scheduler import ReminderScheduler
+from astrbot_plugin_anime.core.models import AnimeItem, Schedule, Subscription, Target
+from astrbot_plugin_anime.services import scheduler as scheduler_module
+from astrbot_plugin_anime.services.scheduler import ReminderScheduler
 
 
 class FakeStore:

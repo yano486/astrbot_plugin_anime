@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from astrbot_plugin_anime.merge import merge_records
-from astrbot_plugin_anime.models import Schedule, SourceRecord
+from astrbot_plugin_anime.core.merge import merge_records
+from astrbot_plugin_anime.core.models import Schedule, SourceRecord
 
 
 def record(source: str, title: str, bangumi_id: int | None, hour: int) -> SourceRecord:

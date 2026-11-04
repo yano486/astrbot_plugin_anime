@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from .base import SourceAdapter, SourceResult
 from .helpers import make_schedule, weekday_number
-from ..models import SourceRecord
+from ..core.models import SourceRecord
 
 
 def _walk_json(value):

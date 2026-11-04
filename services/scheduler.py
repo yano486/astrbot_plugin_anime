@@ -4,10 +4,10 @@ import asyncio
 from datetime import date, datetime, time, timedelta
 from typing import Any, Awaitable, Callable
 
-from .diagnostics import get_plugin_logger
-from .models import AnimeItem, Subscription
-from .schedule_utils import schedule_sort_key
-from .time_utils import BJ, next_schedule_occurrence
+from ..core.diagnostics import get_plugin_logger
+from ..core.models import AnimeItem, Subscription
+from ..core.schedule_utils import schedule_sort_key
+from ..core.time_utils import BJ, next_schedule_occurrence
 
 
 logger = get_plugin_logger()
@@ -136,10 +136,10 @@ class ReminderScheduler:
         date_only: bool = False,
         display_timezone: str = "Asia/Shanghai",
     ) -> str:
-        from .formatters import format_reminder
+        from ..rendering.formatters import format_reminder
 
         if item.item_type in ("movie", "ova"):
-            from .formatters import format_movie_reminder
+            from ..rendering.formatters import format_movie_reminder
 
             return format_movie_reminder(
                 item,

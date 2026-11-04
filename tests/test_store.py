@@ -4,8 +4,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from astrbot_plugin_anime.models import Subscription, Target
-from astrbot_plugin_anime.store import JsonStore
+from astrbot_plugin_anime.core.models import Subscription, Target
+from astrbot_plugin_anime.core.store import JsonStore
 
 
 class StoreTests(unittest.TestCase):

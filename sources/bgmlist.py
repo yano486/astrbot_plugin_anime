@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from .base import SourceAdapter, SourceResult
 from .helpers import make_schedule
-from ..models import SourceRecord
+from ..core.models import SourceRecord
 
 
 def _schedule_from_item(item: dict[str, Any]) -> list:

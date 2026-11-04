@@ -6,7 +6,7 @@ import unittest
 
 from astrbot_plugin_anime.sources.bangumi import BangumiAdapter
 from astrbot_plugin_anime.sources.base import SourceResult
-from astrbot_plugin_anime.models import SourceRecord
+from astrbot_plugin_anime.core.models import SourceRecord
 
 
 class FakeBangumiAdapter(BangumiAdapter):

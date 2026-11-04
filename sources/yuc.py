@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 from .base import SourceAdapter, SourceResult
 from .helpers import make_schedule, normalize_start_date, weekday_number, season_year_month
-from ..models import SourceRecord
+from ..core.models import SourceRecord
 
 
 def _title_from_card(card: Any) -> str:

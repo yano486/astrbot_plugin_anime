@@ -5,7 +5,7 @@ from aiohttp.test_utils import TestClient, TestServer
 import unittest
 from unittest import IsolatedAsyncioTestCase
 
-from astrbot_plugin_anime.web_server import SESSION_MAX_AGE, _session_value, _valid_session, create_remote_web_app, validate_remote_password
+from astrbot_plugin_anime.web.server import SESSION_MAX_AGE, _session_value, _valid_session, create_remote_web_app, validate_remote_password
 
 
 class RemotePasswordTests(unittest.TestCase):

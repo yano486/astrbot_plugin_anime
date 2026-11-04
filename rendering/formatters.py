@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from .models import AnimeItem, Schedule
-from .time_utils import schedule_time_in_timezone
+from ..core.models import AnimeItem, Schedule
+from ..core.time_utils import schedule_time_in_timezone
 
 WEEKDAYS = ["", "一", "二", "三", "四", "五", "六", "日"]
 

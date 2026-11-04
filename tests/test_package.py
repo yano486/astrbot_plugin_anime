@@ -26,6 +26,36 @@ class PackageSmokeTests(unittest.TestCase):
         self.assertIsNotNone(source_version)
         self.assertEqual(metadata_version.group(1), source_version.group(1))
 
+    def test_plugin_entry_and_responsibility_packages_are_stable(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        for name in ("main.py", "__init__.py", "metadata.yaml", "_conf_schema.json", "requirements.txt"):
+            with self.subTest(root_file=name):
+                self.assertTrue((root / name).is_file())
+
+        expected_files = {
+            "core": ("diagnostics.py", "merge.py", "models.py", "schedule_utils.py", "store.py", "time_utils.py"),
+            "rendering": ("formatters.py", "push_tables.py"),
+            "services": ("refresh.py", "scheduler.py"),
+            "web": ("api.py", "server.py"),
+        }
+        for package, files in expected_files.items():
+            with self.subTest(package=package):
+                self.assertTrue((root / package / "__init__.py").is_file())
+                for filename in files:
+                    self.assertTrue((root / package / filename).is_file())
+
+        for old_name in (
+            "diagnostics.py", "formatters.py", "merge.py", "models.py", "push_tables.py",
+            "schedule_utils.py", "scheduler.py", "services.py", "store.py", "time_utils.py",
+            "web_api.py", "web_server.py",
+        ):
+            with self.subTest(old_root_module=old_name):
+                self.assertFalse((root / old_name).exists())
+
+        from astrbot_plugin_anime import AnimePlugin
+
+        self.assertEqual(AnimePlugin.__name__, "AnimePlugin")
+
 
 if __name__ == "__main__":
     unittest.main()

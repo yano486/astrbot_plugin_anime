@@ -4,8 +4,8 @@ import re
 import unicodedata
 from datetime import datetime
 
-from ..models import Schedule
-from ..time_utils import parse_broadcast_clock
+from ..core.models import Schedule
+from ..core.time_utils import parse_broadcast_clock
 
 WEEKDAY_MAP = {
     "周一": 1,

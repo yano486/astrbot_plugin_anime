@@ -5,8 +5,8 @@ from datetime import datetime
 import unittest
 from zoneinfo import ZoneInfo
 
-from astrbot_plugin_anime.models import AnimeItem, Subscription, Target
-from astrbot_plugin_anime.scheduler import ReminderScheduler
+from astrbot_plugin_anime.core.models import AnimeItem, Subscription, Target
+from astrbot_plugin_anime.services.scheduler import ReminderScheduler
 
 
 class Store:

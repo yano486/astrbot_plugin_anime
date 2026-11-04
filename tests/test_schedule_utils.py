@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from astrbot_plugin_anime.models import Schedule
-from astrbot_plugin_anime.schedule_utils import schedule_sort_key
+from astrbot_plugin_anime.core.models import Schedule
+from astrbot_plugin_anime.core.schedule_utils import schedule_sort_key
 
 
 class ScheduleUtilsTests(unittest.TestCase):

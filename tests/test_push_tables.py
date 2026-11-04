@@ -8,8 +8,8 @@ from zoneinfo import ZoneInfo
 
 from PIL import Image
 
-from astrbot_plugin_anime.models import AnimeItem, Schedule
-from astrbot_plugin_anime.push_tables import (
+from astrbot_plugin_anime.core.models import AnimeItem, Schedule
+from astrbot_plugin_anime.rendering.push_tables import (
     airings_between,
     cleanup_generated_tables,
     upcoming_movies,
@@ -47,7 +47,7 @@ class PushTableTests(unittest.TestCase):
         self.assertEqual({row.item.key for row in rows}, {"m", "o"})
 
     def test_weekly_schedule_can_render_as_day_bands(self) -> None:
-        from astrbot_plugin_anime.push_tables import render_weekly_image
+        from astrbot_plugin_anime.rendering.push_tables import render_weekly_image
 
         rows = airings_between([self.item], datetime(2026, 10, 5, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")), datetime(2026, 10, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")))
         with tempfile.TemporaryDirectory() as directory:

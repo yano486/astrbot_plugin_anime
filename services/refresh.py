@@ -4,9 +4,9 @@ import asyncio
 from datetime import date, datetime, timezone
 from typing import Any, Awaitable, Callable, Hashable
 
-from .diagnostics import get_plugin_logger
-from .merge import merge_records, unify_schedules
-from .sources import BangumiAdapter, BgmlistAdapter, SourceResult, YucAdapter
+from ..core.diagnostics import get_plugin_logger
+from ..core.merge import merge_records, unify_schedules
+from ..sources import BangumiAdapter, BgmlistAdapter, SourceResult, YucAdapter
 
 
 logger = get_plugin_logger()

@@ -5,10 +5,10 @@ from datetime import date
 from typing import Any
 from urllib.parse import urlsplit, urlencode
 
-from ..diagnostics import get_plugin_logger
+from ..core.diagnostics import get_plugin_logger
 from .base import SourceAdapter, SourceResult
 from .helpers import ADAPTATION_TYPE_ORDER, adaptation_types, make_schedule, season_year_month
-from ..models import SourceRecord
+from ..core.models import SourceRecord
 
 
 logger = get_plugin_logger()

@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import date
 import unittest
 
-from astrbot_plugin_anime.models import AnimeItem, Subscription
-from astrbot_plugin_anime.push_tables import upcoming_movies
-from astrbot_plugin_anime.store import JsonStore
-from astrbot_plugin_anime.web_api import validate_subscriptions
+from astrbot_plugin_anime.core.models import AnimeItem, Subscription
+from astrbot_plugin_anime.rendering.push_tables import upcoming_movies
+from astrbot_plugin_anime.core.store import JsonStore
+from astrbot_plugin_anime.web.api import validate_subscriptions
 
 
 class MovieCatalogTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class MovieCatalogTests(unittest.TestCase):
             store = JsonStore(Path(directory) / "state.json")
             movie = AnimeItem("movie:1", "Movie", item_type="movie", region="jp", release_date="2027-01-01")
             store.set_movie_items([movie])
-            store.upsert_target(__import__("astrbot_plugin_anime.models", fromlist=["Target"]).Target("group:1"))
+            store.upsert_target(__import__("astrbot_plugin_anime.core.models", fromlist=["Target"]).Target("group:1"))
             store.set_subscription(Subscription("group:1", movie.key, lead_minutes=60))
             store.save()
             loaded = JsonStore(Path(directory) / "state.json")

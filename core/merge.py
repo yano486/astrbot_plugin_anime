@@ -6,7 +6,7 @@ from collections import defaultdict
 
 from .models import AnimeItem, SourceRecord, utc_now_iso
 from .schedule_utils import schedule_sort_key
-from .sources.helpers import ADAPTATION_TYPE_ORDER, adaptation_types as extract_adaptation_types
+from ..sources.helpers import ADAPTATION_TYPE_ORDER, adaptation_types as extract_adaptation_types
 
 
 _CJK_DIGITS = {"零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}

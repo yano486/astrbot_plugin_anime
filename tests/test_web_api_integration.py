@@ -4,15 +4,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from astrbot_plugin_anime.models import AnimeItem, Schedule, Target
-from astrbot_plugin_anime.store import JsonStore
-from astrbot_plugin_anime.web_api import AnimeWebAPI
+from astrbot_plugin_anime.core.models import AnimeItem, Schedule, Target
+from astrbot_plugin_anime.core.store import JsonStore
+from astrbot_plugin_anime.web.api import AnimeWebAPI
 
 
 class WebApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_astrbot_and_remote_servers_register_the_same_api_routes(self):
-        from astrbot_plugin_anime.web_api import API_ROUTE_DEFINITIONS
-        from astrbot_plugin_anime.web_server import create_remote_web_app
+        from astrbot_plugin_anime.web.api import API_ROUTE_DEFINITIONS
+        from astrbot_plugin_anime.web.server import create_remote_web_app
 
         class Context:
             def __init__(self):

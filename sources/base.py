@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from ..models import SourceRecord
+from ..core.models import SourceRecord
 
 
 @dataclass

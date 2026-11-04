@@ -11,8 +11,8 @@ from zoneinfo import ZoneInfo
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .models import AnimeItem, Schedule
-from .time_utils import BJ, JST
+from ..core.models import AnimeItem, Schedule
+from ..core.time_utils import BJ, JST
 
 
 _GENERATED_TABLE_NAME = re.compile(r"[0-9a-f]{32}\.png\Z")

@@ -5,10 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from astrbot_plugin_anime.models import AnimeItem, SourceRecord, Schedule
-from astrbot_plugin_anime.services import RefreshService
+from astrbot_plugin_anime.core.models import AnimeItem, SourceRecord, Schedule
+from astrbot_plugin_anime.services.refresh import RefreshService
 from astrbot_plugin_anime.sources.base import SourceResult
-from astrbot_plugin_anime.store import JsonStore
+from astrbot_plugin_anime.core.store import JsonStore
 
 
 class FakeAdapter:

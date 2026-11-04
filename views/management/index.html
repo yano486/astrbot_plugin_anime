@@ -46,7 +46,6 @@
     <section class="toolbar">
       <div class="filter-control"><span id="region-label" class="filter-label">地区</span><select id="region" aria-label="地区"><option value="jp" selected>日本动画</option><option value="">所有地区</option><option value="mixed">多地区/合拍</option><option value="unknown">待确认</option></select></div>
       <div class="filter-control"><span id="type-label" class="filter-label">类型</span><select id="type" aria-label="类型"><option value="">所有类型</option><option value="tv">TV</option><option value="web">WEB</option><option value="preview">新番抢先看</option><option value="ova">OVA</option><option value="movie">剧场版</option></select></div>
-      <div class="filter-control" id="weekday-filter"><span id="weekday-label" class="filter-label">星期</span><select id="weekday" aria-label="星期"><option value="">所有星期</option><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option></select><div id="weekday-buttons" class="weekday-buttons" hidden><button type="button" data-weekday="">全部</button><button type="button" data-weekday="1">一</button><button type="button" data-weekday="2">二</button><button type="button" data-weekday="3">三</button><button type="button" data-weekday="4">四</button><button type="button" data-weekday="5">五</button><button type="button" data-weekday="6">六</button><button type="button" data-weekday="7">日</button></div></div>
       <div class="filter-control" id="role-filter"><span id="role-label" class="filter-label">季度属性</span><select id="role" aria-label="季度属性"><option value="">新作与续播</option><option value="new">新作</option><option value="continuing">跨季续播</option></select></div>
       <div class="filter-control"><span id="period-label" class="filter-label">上映年份</span><select id="period" aria-label="筛选季度或上映年份"></select></div>
       <div class="filter-control"><span id="source-label" class="filter-label">来源</span><select id="source" aria-label="来源"><option value="">所有来源</option></select></div>
@@ -85,8 +84,12 @@
       <section class="remote-info"><div><strong>WebUI 访问</strong><p id="remote-webui-status">远程 WebUI 地址读取中…</p><small>监听地址、端口和登录密码可在 AstrBot 插件配置中修改；AstrBot 内嵌管理页仍可使用。请勿将 HTTP 服务暴露到公网。</small></div><button class="button button-quiet" id="logout" type="button" hidden>退出登录</button></section>
     </section>
 
-    <footer><span>排期仅代表来源记录，不等于视频实际上线。</span><span id="save-status"></span></footer>
+    <footer><span>排期仅代表来源记录，不等于视频实际上线。</span></footer>
   </main>
+  <div id="save-status" class="status-notice" role="status" hidden>
+    <span class="status-notice-text"></span>
+    <button id="dismiss-status" type="button" aria-label="关闭提示">×</button>
+  </div>
   <script src="./bridge.js"></script>
   <script src="./controls.js"></script>
   <script type="module" src="./app.js"></script>

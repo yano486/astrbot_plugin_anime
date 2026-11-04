@@ -73,6 +73,16 @@ test('saving cannot copy the loaded group subscriptions into a different target'
   assert.equal(posts, 0);
 });
 
+test('reading subscriptions limits the visible catalog to checked items', async () => {
+  const app = setup(async endpoint => endpoint === 'subscriptions'
+    ? { subscriptions: [{ anime_key: 'A', enabled: true }, { anime_key: 'B', enabled: false }] }
+    : {});
+  app.element('#target').value = 'group:A';
+  await app.run('loadSubscriptions()');
+  app.run('state.items = [{key:"A"}, {key:"B"}, {key:"C"}]');
+  assert.equal(app.run('visibleCatalogItems().map(item => item.key).join(",")'), 'A');
+});
+
 test('Monday 00:30 Japan displays Sunday 23:30 Beijing', () => {
   const app = setup(async () => ({}));
   const text = app.run('firstTime({schedules:[{weekday:1,hour:0,minute:30}]}, "Asia/Shanghai")');
@@ -115,18 +125,10 @@ test('all-types broadcast choices put the current season first and limit fetchin
   assert.equal(app.run('periodsForSelection("", "2026-h1").join(",")'), '2026-01,2026-04');
 });
 
-test('OVA and movies hide weekday and season-role filters', () => {
-  assert.match(markup, /id="weekday-filter"/);
+test('weekday filter is removed from the management page', () => {
+  assert.doesNotMatch(markup, /weekday-filter|weekday-buttons|id="weekday"|星期/);
   assert.match(markup, /id="role-filter"/);
-  assert.match(source, /updateFilterVisibility/);
-});
-
-test('TV exposes compact weekday shortcuts and fetch button status text', () => {
-  assert.match(markup, /id="weekday-buttons"/);
-  assert.match(markup, /data-weekday=""[^>]*>全部/);
-  assert.match(markup, /data-weekday="1"/);
-  assert.match(source, /正在获取/);
-  assert.match(source, /已获取最新番剧表/);
+  assert.doesNotMatch(source, /syncWeekdayButtons|#weekday/);
 });
 
 test('early access type targets the next quarter and keeps only supported filters', () => {
@@ -179,7 +181,7 @@ test('TV season catalog query requests only the selected quarter', async () => {
 
 test('filters use explicit persistent labels separate from selected values', () => {
   assert.match(markup, /id="region-label" class="filter-label">地区/);
-  assert.match(markup, /id="weekday-label" class="filter-label">星期/);
+  assert.match(markup, /id="period-label" class="filter-label">上映年份/);
 });
 
 test('settings page exposes whitelist, test-push, and remote WebUI status', () => {
@@ -209,6 +211,14 @@ test('catalog places the push target row beside search and keeps filters in the 
   assert.match(markup, /class="catalog-command-row"[\s\S]*class="search"[\s\S]*class="target-row"/);
   assert.match(markup, /class="catalog-command-row"[\s\S]*<\/section>[\s\S]*class="toolbar"/);
   assert.doesNotMatch(markup, /class="toolbar"[\s\S]*class="search"/);
+});
+
+test('save status is a fixed bottom notice with a close control', () => {
+  assert.match(markup, /id="save-status"/);
+  assert.match(markup, /id="dismiss-status"/);
+  assert.match(styles, /position:fixed/);
+  assert.match(styles, /status-notice/);
+  assert.match(source, /dismiss-status/);
 });
 
 test('catalog fetch action is labelled as getting the schedule', () => {

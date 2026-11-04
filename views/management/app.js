@@ -1,6 +1,6 @@
 const bridge = window.AstrBotPluginView;
 const $ = (selector) => document.querySelector(selector);
-const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", showSubscribedOnly: false, sources: {}, movieSources: {}, preferences: { schedule_source: "earliest", display_timezone: "Asia/Shanghai", exclude_r18: false }, periodMode: "", periodSelections: { season: "", broadcast: "", year: "" } };
+const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", showSubscribedOnly: false, weekday: "", sources: {}, movieSources: {}, preferences: { schedule_source: "earliest", display_timezone: "Asia/Shanghai", exclude_r18: false }, periodMode: "", periodSelections: { season: "", broadcast: "", year: "" } };
 
 function currentSeason(now = new Date()) {
   const month = Math.floor((now.getMonth()) / 3) * 3 + 1;
@@ -131,12 +131,22 @@ function updateFilterVisibility(type) {
   const movie = ["ova", "movie"].includes(type);
   const preview = type === "preview";
   $("#query").disabled = preview;
+  $("#weekday-filter").hidden = movie || preview;
   $("#role-filter").hidden = movie || preview;
   $("#query").value = preview ? "" : $("#query").value;
   $("#role").value = preview || movie ? "" : $("#role").value;
+  syncWeekdayButtons();
 }
 
 function safe(value = "") { return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+function syncWeekdayButtons() {
+  document.querySelectorAll("#weekday-buttons [data-weekday]").forEach(button => {
+    const active = button.dataset.weekday === state.weekday;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
 
 function setStatus(message, kind = "") {
   const notice = $("#save-status");
@@ -221,15 +231,23 @@ function visibleCatalogItems() {
   return state.items.filter(item => state.subscriptions.get(item.key)?.enabled === true);
 }
 
+function syncSubscriptionButton() {
+  const button = $("#load-subs");
+  if (!button) return;
+  button.textContent = state.showSubscribedOnly ? "显示全部" : "读取订阅";
+  button.setAttribute("aria-pressed", String(state.showSubscribedOnly));
+}
+
 function render() {
   const q = $("#query").value.trim().toLowerCase();
-  const region = $("#region").value, type = $("#type").value, role = $("#role").value, source = $("#source").value, period = $("#period").value;
+  const region = $("#region").value, type = $("#type").value, weekday = ["preview", "ova", "movie"].includes(type) ? 0 : Number(state.weekday), role = $("#role").value, source = $("#source").value, period = $("#period").value;
   const items = visibleCatalogItems().filter(item => {
     const movie = isMovie(item);
     if (region === "jp" && item.region !== "jp") return false;
     if (region === "mixed" && item.region !== "mixed") return false;
     if (region === "unknown" && !["unknown", "mixed"].includes(item.region)) return false;
     if (type && item.item_type !== type) return false;
+    if (weekday && !movie && !(item.schedules || []).some(s => s.weekday === weekday)) return false;
     if (role && !movie && item.season_role !== role) return false;
     if (!matchesCatalogPeriod(item, type, period)) return false;
     if (source && !(item.sources || []).includes(source)) return false;
@@ -403,11 +421,19 @@ function removeWhitelist(event) {
 
 async function loadSubscriptions() {
   const targetId = $("#target").value; if (!targetId) { setStatus("请先选择推送目标", "notice-error"); return; }
+  if (state.showSubscribedOnly && state.subscriptionsTarget === targetId) {
+    state.showSubscribedOnly = false;
+    syncSubscriptionButton();
+    render();
+    setStatus("已显示全部动画", "notice-success");
+    return;
+  }
   const data = await bridge.apiGet("subscriptions", { target_id: targetId });
   if ($("#target").value !== targetId) return;
   state.subscriptionsTarget = targetId;
   state.subscriptions = new Map((data.subscriptions || []).map(sub => [sub.anime_key, sub]));
   state.showSubscribedOnly = true;
+  syncSubscriptionButton();
   render();
   setStatus("已读取该目标订阅", "notice-success");
 }
@@ -544,7 +570,13 @@ async function init() {
     window.AnimeControls?.enhanceAll();
     setTheme(storedTheme() === "dark" ? "dark" : "light");
     for (const id of ["query", "region", "role", "source"]) $("#" + id).addEventListener(id === "query" ? "input" : "change", render);
-    $("#type").addEventListener("change", () => { configurePeriodControl(); loadItems(false); });
+    document.querySelectorAll("#weekday-buttons [data-weekday]").forEach(button => button.addEventListener("click", () => {
+      state.weekday = button.dataset.weekday || "";
+      syncWeekdayButtons();
+      render();
+    }));
+    $("#target").addEventListener("change", () => { state.showSubscribedOnly = false; syncSubscriptionButton(); });
+    $("#type").addEventListener("change", () => { const type = $("#type").value; configurePeriodControl(); loadItems(type === "preview"); });
     $("#period").addEventListener("change", () => {
       state.periodSelections[state.periodMode] = $("#period").value;
       loadItems(false);
@@ -559,7 +591,7 @@ async function init() {
     $("#add-umo").addEventListener("click", addUmoTarget);
     $("#save-preferences").addEventListener("click", savePreferences);
     $("#toggle-theme").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
-    $("#dismiss-status").addEventListener("click", () => { $("#save-status").hidden = true; });
+    syncSubscriptionButton();
     $("#logout").addEventListener("click", logout);
     $("#show-catalog").addEventListener("click", () => showView("catalog"));
     $("#show-settings").addEventListener("click", () => showView("settings"));

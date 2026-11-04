@@ -73,7 +73,7 @@ test('saving cannot copy the loaded group subscriptions into a different target'
   assert.equal(posts, 0);
 });
 
-test('reading subscriptions limits the visible catalog to checked items', async () => {
+test('reading subscriptions limits the visible catalog to checked items and can be toggled off', async () => {
   const app = setup(async endpoint => endpoint === 'subscriptions'
     ? { subscriptions: [{ anime_key: 'A', enabled: true }, { anime_key: 'B', enabled: false }] }
     : {});
@@ -81,6 +81,11 @@ test('reading subscriptions limits the visible catalog to checked items', async 
   await app.run('loadSubscriptions()');
   app.run('state.items = [{key:"A"}, {key:"B"}, {key:"C"}]');
   assert.equal(app.run('visibleCatalogItems().map(item => item.key).join(",")'), 'A');
+  app.run('state.items = []');
+  await app.run('loadSubscriptions()');
+  assert.equal(app.run('state.showSubscribedOnly'), false);
+  app.run('state.items = [{key:"A"}, {key:"B"}, {key:"C"}]');
+  assert.equal(app.run('visibleCatalogItems().map(item => item.key).join(",")'), 'A,B,C');
 });
 
 test('Monday 00:30 Japan displays Sunday 23:30 Beijing', () => {
@@ -125,10 +130,15 @@ test('all-types broadcast choices put the current season first and limit fetchin
   assert.equal(app.run('periodsForSelection("", "2026-h1").join(",")'), '2026-01,2026-04');
 });
 
-test('weekday filter is removed from the management page', () => {
-  assert.doesNotMatch(markup, /weekday-filter|weekday-buttons|id="weekday"|星期/);
+test('weekday dropdown is removed but compact weekday buttons remain', () => {
+  assert.doesNotMatch(markup, /id="weekday"/);
+  assert.match(markup, /id="weekday-buttons"/);
+  assert.match(markup, /data-weekday="1"[^>]*>一/);
+  assert.match(markup, /data-weekday="7"[^>]*>日/);
   assert.match(markup, /id="role-filter"/);
-  assert.doesNotMatch(source, /syncWeekdayButtons|#weekday/);
+  assert.match(source, /syncWeekdayButtons/);
+  assert.match(source, /state\.weekday/);
+  assert.match(source, /#weekday-buttons \[data-weekday\]/);
 });
 
 test('early access type targets the next quarter and keeps only supported filters', () => {
@@ -179,6 +189,22 @@ test('TV season catalog query requests only the selected quarter', async () => {
   assert.equal(calls[0].params.season, '2026-07');
 });
 
+test('preview selection refreshes the next quarter before reading its catalog', async () => {
+  const calls = [];
+  const app = setup(async (endpoint, params) => {
+    calls.push({kind: 'get', endpoint, params});
+    return {items: [], count: 0, updated_at: ""};
+  }, async (endpoint, payload) => {
+    calls.push({kind: 'post', endpoint, payload});
+    return {};
+  });
+  app.element('#type').value = 'preview';
+  await app.run('configurePeriodControl(); loadItems(true)');
+  assert.equal(calls.find(call => call.kind === 'post').endpoint, 'refresh');
+  assert.equal(calls.find(call => call.kind === 'post').payload.seasons.join(','), '2027-01');
+  assert.match(source, /loadItems\(type === "preview"\)/);
+});
+
 test('filters use explicit persistent labels separate from selected values', () => {
   assert.match(markup, /id="region-label" class="filter-label">地区/);
   assert.match(markup, /id="period-label" class="filter-label">上映年份/);
@@ -213,12 +239,12 @@ test('catalog places the push target row beside search and keeps filters in the 
   assert.doesNotMatch(markup, /class="toolbar"[\s\S]*class="search"/);
 });
 
-test('save status is a fixed bottom notice with a close control', () => {
+test('catalog actions use a fixed bottom dock and status is a right-side toast', () => {
   assert.match(markup, /id="save-status"/);
-  assert.match(markup, /id="dismiss-status"/);
-  assert.match(styles, /position:fixed/);
+  assert.doesNotMatch(markup, /dismiss-status/);
+  assert.match(styles, /\.catalog-command-row\{[^}]*position:fixed/);
+  assert.match(styles, /\.status-notice\{[^}]*right:18px/);
   assert.match(styles, /status-notice/);
-  assert.match(source, /dismiss-status/);
 });
 
 test('catalog fetch action is labelled as getting the schedule', () => {

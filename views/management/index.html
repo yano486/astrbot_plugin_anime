@@ -46,6 +46,7 @@
     <section class="toolbar">
       <div class="filter-control"><span id="region-label" class="filter-label">地区</span><select id="region" aria-label="地区"><option value="jp" selected>日本动画</option><option value="">所有地区</option><option value="mixed">多地区/合拍</option><option value="unknown">待确认</option></select></div>
       <div class="filter-control"><span id="type-label" class="filter-label">类型</span><select id="type" aria-label="类型"><option value="">所有类型</option><option value="tv">TV</option><option value="web">WEB</option><option value="preview">新番抢先看</option><option value="ova">OVA</option><option value="movie">剧场版</option></select></div>
+      <div class="filter-control weekday-filter" id="weekday-filter"><span id="weekday-label" class="filter-label">星期</span><div id="weekday-buttons" class="weekday-buttons" role="group" aria-label="按星期筛选"><button type="button" data-weekday="" aria-pressed="true">全</button><button type="button" data-weekday="1" aria-pressed="false">一</button><button type="button" data-weekday="2" aria-pressed="false">二</button><button type="button" data-weekday="3" aria-pressed="false">三</button><button type="button" data-weekday="4" aria-pressed="false">四</button><button type="button" data-weekday="5" aria-pressed="false">五</button><button type="button" data-weekday="6" aria-pressed="false">六</button><button type="button" data-weekday="7" aria-pressed="false">日</button></div></div>
       <div class="filter-control" id="role-filter"><span id="role-label" class="filter-label">季度属性</span><select id="role" aria-label="季度属性"><option value="">新作与续播</option><option value="new">新作</option><option value="continuing">跨季续播</option></select></div>
       <div class="filter-control"><span id="period-label" class="filter-label">上映年份</span><select id="period" aria-label="筛选季度或上映年份"></select></div>
       <div class="filter-control"><span id="source-label" class="filter-label">来源</span><select id="source" aria-label="来源"><option value="">所有来源</option></select></div>
@@ -88,7 +89,6 @@
   </main>
   <div id="save-status" class="status-notice" role="status" hidden>
     <span class="status-notice-text"></span>
-    <button id="dismiss-status" type="button" aria-label="关闭提示">×</button>
   </div>
   <script src="./bridge.js"></script>
   <script src="./controls.js"></script>

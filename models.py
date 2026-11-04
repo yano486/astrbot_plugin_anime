@@ -36,6 +36,7 @@ class SourceRecord:
     item_type: str = "unknown"
     region: str = "unknown"
     genres: list[str] = field(default_factory=list)
+    adaptation_types: list[str] = field(default_factory=list)
     cover_url: str = ""
     detail_url: str = ""
     schedules: list[Schedule] = field(default_factory=list)
@@ -59,6 +60,7 @@ class AnimeItem:
     item_type: str = "unknown"
     region: str = "unknown"
     genres: list[str] = field(default_factory=list)
+    adaptation_types: list[str] = field(default_factory=list)
     cover_url: str = ""
     detail_url: str = ""
     schedules: list[Schedule] = field(default_factory=list)

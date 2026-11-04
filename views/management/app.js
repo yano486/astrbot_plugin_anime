@@ -132,9 +132,7 @@ function updateFilterVisibility(type) {
   const preview = type === "preview";
   $("#query").disabled = preview;
   $("#weekday-filter").hidden = movie || preview;
-  $("#role-filter").hidden = movie || preview;
   $("#query").value = preview ? "" : $("#query").value;
-  $("#role").value = preview || movie ? "" : $("#role").value;
   updatePreviewHint(type);
   syncWeekdayButtons();
 }
@@ -243,6 +241,28 @@ function matchesCatalogType(itemType, selectedType) {
   return !selectedType || selectedType === "preview" || itemType === selectedType;
 }
 
+function matchesAdaptationType(item, selectedType) {
+  return !selectedType || adaptationTypes(item).includes(selectedType);
+}
+
+function adaptationTypes(item) {
+  const saved = item.adaptation_types || [];
+  if (saved.length) return saved;
+  const categories = [];
+  for (const tag of item.genres || []) {
+    const value = String(tag).normalize("NFKC").toLowerCase().replace(/\s+/g, "");
+    if (/(原创|原創|オリジナルアニメ|オリジナル作品)/.test(value) && !categories.includes("original")) categories.push("original");
+    if (/(轻小说改|輕小說改|小说改|小說改|轻改|小說原作|小说原作|轻小说原作|輕小說原作|原作小说|原作小說|文学改|文學改|文学原作|文學原作)/.test(value) && !categories.includes("novel")) categories.push("novel");
+    if (/(漫画改|漫畫改|漫改|漫画原作|漫畫原作|原作漫画|原作漫畫|コミック原作)/.test(value) && !categories.includes("manga")) categories.push("manga");
+    if (/(游戏改|遊戲改|游戏原作|遊戲原作|原作游戏|原作遊戲|ゲーム原作|游戏改编|遊戲改編)/.test(value) && !categories.includes("game")) categories.push("game");
+  }
+  return categories;
+}
+
+function adaptationLabel(value) {
+  return ({novel: "小说改", manga: "漫画改", game: "游戏改", original: "原创"})[value] || "";
+}
+
 function syncSubscriptionButton() {
   const button = $("#load-subs");
   if (!button) return;
@@ -252,7 +272,7 @@ function syncSubscriptionButton() {
 
 function render() {
   const q = $("#query").value.trim().toLowerCase();
-  const region = $("#region").value, type = $("#type").value, weekday = ["preview", "ova", "movie"].includes(type) ? 0 : Number(state.weekday), role = $("#role").value, source = $("#source").value, period = $("#period").value;
+  const region = $("#region").value, type = $("#type").value, weekday = ["preview", "ova", "movie"].includes(type) ? 0 : Number(state.weekday), adaptationType = $("#adaptation-type").value, source = $("#source").value, period = $("#period").value;
   const items = visibleCatalogItems().filter(item => {
     const movie = isMovie(item);
     if (region === "jp" && item.region !== "jp") return false;
@@ -260,7 +280,7 @@ function render() {
     if (region === "unknown" && !["unknown", "mixed"].includes(item.region)) return false;
     if (!matchesCatalogType(item.item_type, type)) return false;
     if (weekday && !movie && !(item.schedules || []).some(s => s.weekday === weekday)) return false;
-    if (role && !movie && item.season_role !== role) return false;
+    if (!matchesAdaptationType(item, adaptationType)) return false;
     if (!matchesCatalogPeriod(item, type, period)) return false;
     if (source && !(item.sources || []).includes(source)) return false;
     if (q && !`${item.title} ${item.title_cn} ${(item.aliases || []).join(" ")} ${(item.genres || []).join(" ")}`.toLowerCase().includes(q)) return false;
@@ -280,12 +300,13 @@ function render() {
     const image = imageUrl ? `<img class="cover" loading="lazy" src="${imageUrl}" alt="">` : '<div class="cover cover-empty">番</div>';
     const cover = detailUrl ? `<a class="cover-link" href="${detailUrl}" target="_blank" rel="noopener noreferrer" aria-label="在 Bangumi 打开 ${safe(item.title_cn || item.title)}">${image}</a>` : image;
     const role = item.season_role === "new" ? '<i class="badge badge-new">新作</i>' : item.season_role === "continuing" ? '<i class="badge badge-cont">续播</i>' : "";
+    const adaptationBadges = adaptationTypes(item).map(value => `<i class="badge badge-adaptation">${adaptationLabel(value)}</i>`).join("");
     const note = item.schedule_note ? `<div class="meta warning">${safe(item.schedule_note)}</div>` : item.data_status === "time_unknown" && !movie ? '<div class="meta warning">暂无可靠播出时间，暂不发送时间提醒</div>' : "";
     const timing = movie
       ? `<div class="movie-release"><label>上映日期</label><div class="date-field"><input class="release-at" type="hidden" value="${safe(movieReleaseValue(item))}"></div><small>OVA 与剧场版仅按日期触发提醒，不使用 TV 的提前分钟设置。</small><div class="release-actions"><button class="button button-quiet save-release" type="button">保存上映日期</button><button class="button button-quiet reset-release" type="button">恢复来源日期</button></div></div>`
       : `<div class="reminder-controls"><label>提前</label><input class="lead" type="number" min="0" max="1440" step="5" value="${Number(selected.lead_minutes) || 0}"><span>分钟</span><label><input class="on-time" type="checkbox" ${selected.on_time ? "checked" : ""}> 准点提醒</label></div>`;
     const displayTime = movie ? `上映日期：${safe(item.release_date || "待确认")}` : safe(firstTime(item));
-    card.innerHTML = `${cover}<div class="card-main"><div class="card-top">${role}<i class="badge badge-cont">${safe(item.item_type || "类型待确认")}</i><i class="badge">${safe(item.region === "jp" ? "日本" : item.region === "mixed" ? "地区混合" : "地区待确认")}</i></div><h3>${safe(item.title_cn || item.title)}</h3><div class="original">${safe(item.title)}</div><div class="air-time">${displayTime}</div><div class="meta">${safe((item.genres || []).slice(0,4).join(" · "))}</div><div class="meta">来源：${safe((item.sources || []).join("、") || "尚无排期来源")}</div>${note}${timing}</div><input class="card-check" type="checkbox" ${selected.enabled ? "checked" : ""} aria-label="订阅 ${safe(item.title_cn || item.title)}">`;
+    card.innerHTML = `${cover}<div class="card-main"><div class="card-top">${role}${adaptationBadges}<i class="badge badge-cont">${safe(item.item_type || "类型待确认")}</i><i class="badge">${safe(item.region === "jp" ? "日本" : item.region === "mixed" ? "地区混合" : "地区待确认")}</i></div><h3>${safe(item.title_cn || item.title)}</h3><div class="original">${safe(item.title)}</div><div class="air-time">${displayTime}</div><div class="meta">${safe((item.genres || []).slice(0,4).join(" · "))}</div><div class="meta">来源：${safe((item.sources || []).join("、") || "尚无排期来源")}</div>${note}${timing}</div><input class="card-check" type="checkbox" ${selected.enabled ? "checked" : ""} aria-label="订阅 ${safe(item.title_cn || item.title)}">`;
     const checkbox = card.querySelector(".card-check");
     const updateSelected = () => {
       const old = state.subscriptions.get(item.key) || {};
@@ -592,7 +613,7 @@ async function init() {
     configurePeriodControl();
     window.AnimeControls?.enhanceAll();
     setTheme(storedTheme() === "dark" ? "dark" : "light");
-    for (const id of ["query", "region", "role", "source"]) $("#" + id).addEventListener(id === "query" ? "input" : "change", render);
+    for (const id of ["query", "region", "adaptation-type", "source"]) $("#" + id).addEventListener(id === "query" ? "input" : "change", render);
     document.querySelectorAll("#weekday-buttons [data-weekday]").forEach(button => button.addEventListener("click", () => {
       state.weekday = button.dataset.weekday || "";
       syncWeekdayButtons();

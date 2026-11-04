@@ -136,10 +136,24 @@ test('weekday dropdown is removed but compact weekday buttons remain', () => {
   assert.match(markup, /id="weekday-buttons"/);
   assert.match(markup, /data-weekday="1"[^>]*>一/);
   assert.match(markup, /data-weekday="7"[^>]*>日/);
-  assert.match(markup, /id="role-filter"/);
+  assert.match(markup, /id="adaptation-filter"/);
+  assert.doesNotMatch(markup, /id="role-filter"|跨季续播/);
   assert.match(source, /syncWeekdayButtons/);
   assert.match(source, /state\.weekday/);
   assert.match(source, /#weekday-buttons \[data-weekday\]/);
+});
+
+test('adaptation type filter matches Bangumi-origin categories rather than season roles', () => {
+  const app = setup(async () => ({}));
+  assert.match(markup, />小说改</);
+  assert.match(markup, />漫画改</);
+  assert.match(markup, />游戏改</);
+  assert.match(markup, />原创</);
+  assert.match(source, /item\.adaptation_types\s*\|\|\s*\[\]/);
+  assert.doesNotMatch(source, /item\.season_role !== role/);
+  assert.match(source, /adaptationBadges/);
+  assert.equal(app.run('matchesAdaptationType({genres:["轻小说改"]}, "novel")'), true);
+  assert.equal(app.run('matchesAdaptationType({genres:["漫画改"]}, "novel")'), false);
 });
 
 test('early access type targets the next quarter and keeps only supported filters', () => {
@@ -307,6 +321,8 @@ test('push test panel uses a full-width heading and separate responsive control 
   assert.match(markup, /class="test-push-actions"[\s\S]*id="test-reminder-card"[\s\S]*id="test-update-card"/);
   assert.match(styles, /\.test-push-panel\s*\{[^}]*display:\s*grid/s);
   assert.match(styles, /\.test-push-actions\s*\{[^}]*grid-template-columns/s);
+  assert.match(styles, /\.test-push-panel\{[^}]*padding:12px 14px/);
+  assert.match(styles, /\.test-push-actions \.button\{[^}]*min-height:40px/s);
 });
 
 test('YUC remains available in source filter even when the current items lack it', () => {

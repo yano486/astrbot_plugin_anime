@@ -7,7 +7,7 @@ from urllib.parse import urlsplit, urlencode
 
 from ..diagnostics import get_plugin_logger
 from .base import SourceAdapter, SourceResult
-from .helpers import make_schedule, season_year_month
+from .helpers import ADAPTATION_TYPE_ORDER, adaptation_types, make_schedule, season_year_month
 from ..models import SourceRecord
 
 
@@ -53,6 +53,7 @@ def parse_bangumi_payload(
             tags = [str(tag) for tag in raw_meta]
         else:
             tags = [str(tag.get("name", "")) for tag in tags_list if isinstance(tag, dict)]
+        adaptation_tags = tags + [str(tag.get("name", "")) for tag in tags_list if isinstance(tag, dict)]
         if exclude_r18 and any(
             value.casefold() in {"r18", "18禁", "成人"} or "r18" in value.casefold()
             for value in tags
@@ -84,6 +85,7 @@ def parse_bangumi_payload(
                     else _region([tag for tag in tags_list if isinstance(tag, dict)])
                 ),
                 genres=tags,
+                adaptation_types=adaptation_types(adaptation_tags),
                 cover_url=str((item.get("images") or {}).get("large", "")),
                 detail_url=str(item.get("url", "")),
                 source_url=source_url,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import datetime
 
 from ..models import Schedule
@@ -36,6 +37,23 @@ WEEKDAY_MAP = {
     "星期天": 7,
     "日": 7,
 }
+
+ADAPTATION_TYPE_ORDER = ("novel", "manga", "game", "original")
+
+
+def adaptation_types(tags: list[str]) -> list[str]:
+    categories = set()
+    for tag in tags or []:
+        value = unicodedata.normalize("NFKC", str(tag)).casefold().replace(" ", "")
+        if any(token in value for token in ("原创", "原創", "オリジナルアニメ", "オリジナル作品")):
+            categories.add("original")
+        if any(token in value for token in ("轻小说改", "輕小說改", "小说改", "小說改", "轻改", "小說原作", "小说原作", "轻小说原作", "輕小說原作", "原作小说", "原作小說", "文学改", "文學改", "文学原作", "文學原作")):
+            categories.add("novel")
+        if any(token in value for token in ("漫画改", "漫畫改", "漫改", "漫画原作", "漫畫原作", "原作漫画", "原作漫畫", "コミック原作")):
+            categories.add("manga")
+        if any(token in value for token in ("游戏改", "遊戲改", "游戏原作", "遊戲原作", "原作游戏", "原作遊戲", "ゲーム原作", "游戏改编", "遊戲改編")):
+            categories.add("game")
+    return [category for category in ADAPTATION_TYPE_ORDER if category in categories]
 
 
 def weekday_number(value: str) -> int | None:

@@ -18,6 +18,16 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 class SourceParserTests(unittest.TestCase):
+    def test_bangumi_meta_tags_extract_adaptation_categories(self) -> None:
+        payload = {"data": [
+            {"id": 1, "type": 2, "platform": "TV", "name": "Novel", "meta_tags": ["日本", "TV"], "tags": [{"name": "轻小说改"}]},
+            {"id": 2, "type": 2, "platform": "TV", "name": "Manga", "meta_tags": ["日本", "漫画改"]},
+            {"id": 3, "type": 2, "platform": "WEB", "name": "Game", "meta_tags": ["日本", "游戏改编"]},
+            {"id": 4, "type": 2, "platform": "TV", "name": "Original", "meta_tags": ["日本", "原创动画"]},
+        ]}
+        records = parse_bangumi_payload(payload)
+        self.assertEqual([record.adaptation_types for record in records], [["novel"], ["manga"], ["game"], ["original"]])
+
     def test_empty_translation_list_does_not_crash(self):
         records = parse_bgmlist_payload({"items": [{"title": "Test", "titleTranslate": {"zh-Hans": []},
             "sites": [{"site": "bangumi", "id": "1"}]}]})

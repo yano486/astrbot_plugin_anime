@@ -18,6 +18,11 @@ def record(source: str, title: str, bangumi_id: int | None, hour: int) -> Source
 
 
 class MergeTests(unittest.TestCase):
+    def test_merges_adaptation_categories_from_source_records(self) -> None:
+        first = SourceRecord(source="bangumi", title="Adapted", bangumi_id=55, adaptation_types=["novel"])
+        second = SourceRecord(source="another", title="Adapted", bangumi_id=55, genres=["漫画改"])
+        self.assertEqual(merge_records([first, second])[0].adaptation_types, ["novel", "manga"])
+
     def test_infers_season_role_from_premiere_date_when_sources_omit_role(self) -> None:
         new_item = SourceRecord(
             source="bangumi", title="New", bangumi_id=101, season="2026-10",

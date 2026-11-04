@@ -5,6 +5,7 @@ import unicodedata
 from collections import defaultdict
 
 from .models import AnimeItem, SourceRecord, utc_now_iso
+from .sources.helpers import ADAPTATION_TYPE_ORDER, adaptation_types as extract_adaptation_types
 
 
 _CJK_DIGITS = {"零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
@@ -163,6 +164,7 @@ def merge_records(records: list[SourceRecord], schedule_source: str = "earliest"
         source_urls: dict[str, str] = {}
         aliases = set()
         genres = set()
+        adaptations = set()
         platforms = set()
         studios = set()
         episode_counts = set()
@@ -172,6 +174,8 @@ def merge_records(records: list[SourceRecord], schedule_source: str = "earliest"
             aliases.update(record.aliases)
             aliases.update(filter(None, (record.title, record.title_cn)))
             genres.update(record.genres)
+            adaptations.update(record.adaptation_types)
+            adaptations.update(extract_adaptation_types(record.genres))
             if record.platform:
                 platforms.add(record.platform)
             if record.studio:
@@ -196,6 +200,7 @@ def merge_records(records: list[SourceRecord], schedule_source: str = "earliest"
                 item_type=first.item_type,
                 region=_region(group),
                 genres=sorted(genres),
+                adaptation_types=[value for value in ADAPTATION_TYPE_ORDER if value in adaptations],
                 cover_url=first.cover_url,
                 detail_url=first.detail_url,
                 schedules=unique_schedules,

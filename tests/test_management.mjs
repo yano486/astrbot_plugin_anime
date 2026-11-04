@@ -280,6 +280,12 @@ test('catalog actions use a fixed bottom dock with compact inline status', () =>
   assert.doesNotMatch(styles, /\.status-notice\{/);
 });
 
+test('catalog fetch status wraps below target controls instead of shrinking the selector', () => {
+  assert.match(styles, /\.catalog-command-row \.target-row\{[^}]*flex-wrap:wrap/);
+  assert.match(styles, /\.catalog-command-row \.target-row \.status-inline\{flex:\s*1 1 100%/);
+  assert.match(styles, /\.catalog-command-row \.target-row \.select-control\{[^}]*min-width:0/);
+});
+
 test('bottom status message can expand within the fixed target row', () => {
   assert.match(styles, /\.status-inline\{[^}]*flex:\s*1 1 360px/s);
   assert.match(styles, /\.status-inline\{[^}]*max-width:none/s);

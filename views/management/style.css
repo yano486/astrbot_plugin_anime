@@ -115,3 +115,4 @@ html[data-theme="dark"] .notice-success{background:#263a32;color:#cfe2cf}html[da
 .refresh-message{display:flex;flex-direction:column;align-items:flex-start;gap:4px}.refresh-message>span{display:inline-flex;align-items:center;gap:9px}.refresh-message small{padding-left:17px;color:var(--muted);font-size:11px;line-height:1.3}
 .badge-adaptation{background:#eadfd7;color:#785341}html[data-theme="dark"] .badge-adaptation{background:#3c3028;color:#e8c3a9}
 @media(max-width:650px){.catalog-command-row .target-row .status-inline{flex-basis:100%}}
+.catalog-command-row .target-row{flex-wrap:wrap}.catalog-command-row .target-row .status-inline{flex:1 1 100%}

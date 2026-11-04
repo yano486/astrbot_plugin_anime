@@ -55,6 +55,30 @@ def _status(schedules: list) -> str:
     return "ok"
 
 
+def _season_role(records: list[SourceRecord], season: str) -> str:
+    declared = {record.season_role for record in records if record.season_role in {"new", "continuing"}}
+    if "continuing" in declared:
+        return "continuing"
+    if "new" in declared:
+        return "new"
+
+    match = re.fullmatch(r"(\d{4})-(\d{2})", season or "")
+    if not match:
+        return "unknown"
+    year, month = int(match.group(1)), int(match.group(2))
+    season_start = f"{year}-{((month - 1) // 3) * 3 + 1:02d}-01"
+    start_dates = [record.release_date[:10] for record in records if re.match(r"^\d{4}-\d{2}-\d{2}", record.release_date or "")]
+    start_dates.extend(
+        schedule.start_date[:10]
+        for record in records
+        for schedule in record.schedules
+        if re.match(r"^\d{4}-\d{2}-\d{2}", schedule.start_date or "")
+    )
+    if not start_dates:
+        return "unknown"
+    return "continuing" if min(start_dates) < season_start else "new"
+
+
 def _schedule_key(schedule) -> tuple[int, int]:
     day_offset, clock_minutes = divmod(schedule.hour * 60 + schedule.minute, 24 * 60)
     weekday = (schedule.weekday - 1 + day_offset) % 7
@@ -143,7 +167,6 @@ def merge_records(records: list[SourceRecord], schedule_source: str = "earliest"
         studios = set()
         episode_counts = set()
         release_dates = set()
-        roles = set()
         for record in group:
             schedules.extend(record.schedules)
             aliases.update(record.aliases)
@@ -157,8 +180,6 @@ def merge_records(records: list[SourceRecord], schedule_source: str = "earliest"
                 episode_counts.add(record.episode_count)
             if record.release_date:
                 release_dates.add(record.release_date)
-            if record.season_role != "unknown":
-                roles.add(record.season_role)
             if record.source_url:
                 source_urls[record.source] = record.source_url
         unique_schedules, schedule_note = unify_schedules(schedules, schedule_source)
@@ -171,7 +192,7 @@ def merge_records(records: list[SourceRecord], schedule_source: str = "earliest"
                 bangumi_id=first.bangumi_id,
                 aliases=sorted(aliases),
                 season=first.season,
-                season_role="continuing" if "continuing" in roles else ("new" if "new" in roles else "unknown"),
+                season_role=_season_role(group, first.season),
                 item_type=first.item_type,
                 region=_region(group),
                 genres=sorted(genres),

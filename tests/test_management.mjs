@@ -14,6 +14,7 @@ class Element {
   textContent = '';
   children = [];
   disabled = false;
+  hidden = false;
   set innerHTML(value) { this.html = value; this.children = []; this.value = ''; }
   get innerHTML() { return this.html || ''; }
   append(value) { this.children.push(value); }
@@ -158,6 +159,15 @@ test('early access mode keeps TV and WEB items instead of treating preview as an
   assert.equal(app.run('matchesCatalogType("web", "tv")'), false);
 });
 
+test('preview mode displays the low-source advisory', () => {
+  const app = setup(async () => ({}));
+  app.run('updatePreviewHint("preview")');
+  assert.equal(app.element('#preview-hint').hidden, false);
+  app.run('updatePreviewHint("tv")');
+  assert.equal(app.element('#preview-hint').hidden, true);
+  assert.match(markup, /id="preview-hint"[^>]*>数据源不足，请耐心等待/);
+});
+
 test('season choices show the previous, current, and next quarter without a duplicate masthead control', () => {
   const app = setup(async () => ({}));
   const values = app.run('seasonPeriodOptions(new Date(2026,10,4)).map(option => option.value).join(",")');
@@ -283,6 +293,12 @@ test('management UI loads custom controls and does not use native date inputs', 
   assert.doesNotMatch(source, /type="date"/);
   assert.match(styles, /\.select-popover/);
   assert.match(styles, /\.date-popover/);
+  assert.match(controls, /positionPopover\(control\)/);
+  assert.match(controls, /dataset\.placement\s*=\s*below < popupHeight \+ 8 && above > below \? "top" : "bottom"/);
+  assert.match(styles, /\.select-popover\[data-placement="top"\]/);
+  assert.match(styles, /\.date-popover\[data-placement="top"\]/);
+  assert.match(styles, /\.date-popover\[data-align="right"\]/);
+  assert.match(styles, /\.catalog-command-row \.target-row \.select-control\{width:auto;flex:1/);
 });
 
 test('push test panel uses a full-width heading and separate responsive control rows', () => {

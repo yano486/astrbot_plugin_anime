@@ -135,7 +135,12 @@ function updateFilterVisibility(type) {
   $("#role-filter").hidden = movie || preview;
   $("#query").value = preview ? "" : $("#query").value;
   $("#role").value = preview || movie ? "" : $("#role").value;
+  updatePreviewHint(type);
   syncWeekdayButtons();
+}
+
+function updatePreviewHint(type) {
+  $("#preview-hint").hidden = type !== "preview";
 }
 
 function safe(value = "") { return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }

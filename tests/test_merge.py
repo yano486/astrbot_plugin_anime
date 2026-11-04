@@ -18,6 +18,22 @@ def record(source: str, title: str, bangumi_id: int | None, hour: int) -> Source
 
 
 class MergeTests(unittest.TestCase):
+    def test_infers_season_role_from_premiere_date_when_sources_omit_role(self) -> None:
+        new_item = SourceRecord(
+            source="bangumi", title="New", bangumi_id=101, season="2026-10",
+            release_date="2026-11-01",
+        )
+        continuing_item = SourceRecord(
+            source="bgmlist", title="Continuing", bangumi_id=102, season="2026-10",
+            schedules=[Schedule(1, 22, 0, "22:00", "bgmlist", start_date="2026-09-20")],
+        )
+        roles = {item.title: item.season_role for item in merge_records([new_item, continuing_item])}
+        self.assertEqual(roles, {"New": "new", "Continuing": "continuing"})
+
+    def test_unknown_premiere_date_stays_unclassified(self) -> None:
+        item = SourceRecord(source="bangumi", title="No date", bangumi_id=103, season="2026-10")
+        self.assertEqual(merge_records([item])[0].season_role, "unknown")
+
     def test_same_bangumi_id_merges_and_retains_sources(self) -> None:
         items = merge_records([record("bangumi", "Test", 1, 20), record("yuc", "测试动画", 1, 20)])
         self.assertEqual(len(items), 1)

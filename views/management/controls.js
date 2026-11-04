@@ -22,10 +22,23 @@
     }
   }
 
+  function positionPopover(control) {
+    const view = control.source.ownerDocument.defaultView;
+    const triggerRect = control.trigger.getBoundingClientRect();
+    const popupRect = control.popup.getBoundingClientRect();
+    const popupHeight = popupRect.height || control.popup.scrollHeight || 240;
+    const popupWidth = popupRect.width || control.popup.scrollWidth || triggerRect.width;
+    const below = view.innerHeight - triggerRect.bottom;
+    const above = triggerRect.top;
+    control.popup.dataset.placement = below < popupHeight + 8 && above > below ? "top" : "bottom";
+    control.popup.dataset.align = triggerRect.right + popupWidth > view.innerWidth - 12 ? "right" : "left";
+  }
+
   function setOpen(control, open) {
     if (!open) return closeControl(control);
     closeOthers(control);
     control.popup.hidden = false;
+    positionPopover(control);
     control.trigger.setAttribute("aria-expanded", "true");
     openControls.add(control);
     const options = [...control.popup.querySelectorAll("[role=option]")];
@@ -195,10 +208,12 @@
     previous.addEventListener("click", () => {
       control.monthCursor = new Date(control.monthCursor.getFullYear(), control.monthCursor.getMonth() - 1, 1);
       renderCalendar(control);
+      positionPopover(control);
     });
     next.addEventListener("click", () => {
       control.monthCursor = new Date(control.monthCursor.getFullYear(), control.monthCursor.getMonth() + 1, 1);
       renderCalendar(control);
+      positionPopover(control);
     });
   }
 
@@ -257,6 +272,7 @@
       if (selected) control.monthCursor = new Date(selected.year, selected.month, 1);
       renderCalendar(control);
       popup.hidden = false;
+      positionPopover(control);
       trigger.setAttribute("aria-expanded", "true");
       openControls.add(control);
     });

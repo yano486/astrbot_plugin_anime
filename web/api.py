@@ -184,7 +184,9 @@ class AnimeWebAPI:
             if endpoint == "preferences":
                 if method == "GET":
                     return 200, {"preferences": self.plugin.store.get_preferences(), "template_definitions": template_definitions()}
-                values = validate_preferences(payload)
+                if not isinstance(payload, dict):
+                    raise ValueError("preferences must be an object")
+                values = validate_preferences({**self.plugin.store.get_preferences(), **payload})
                 self.plugin.store.set_preferences(values)
                 self.plugin.store.save()
                 return 200, {"preferences": self.plugin.store.get_preferences(), "template_definitions": template_definitions()}

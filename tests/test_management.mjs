@@ -31,13 +31,14 @@ function setup(apiGet, apiPost = async () => ({}), options = {}) {
   };
   const window = { AstrBotPluginView: { ready: () => new Promise(() => {}), apiGet, apiPost }, localStorage: { getItem: () => null, setItem() {} } };
   if (options.withLocalStorage === false) delete window.localStorage;
+  const document = { activeElement: null, querySelector: getElement, createElement: () => new Element(), querySelectorAll: () => [], documentElement: { dataset: {} } };
   const sandbox = vm.createContext({
     window,
-    document: { querySelector: getElement, createElement: () => new Element(), querySelectorAll: () => [], documentElement: { dataset: {} } },
+    document,
     console, Date, Map, Set,
   });
   vm.runInContext(source, sandbox);
-  return { run: code => vm.runInContext(code, sandbox), element: getElement };
+  return { run: code => vm.runInContext(code, sandbox), element: getElement, document, expose: (name, value) => { sandbox[name] = value; } };
 }
 
 test('refreshing target list preserves the selected group', async () => {
@@ -261,11 +262,57 @@ test('settings page exposes whitelist, test-push, and remote WebUI status', () =
 
 test('settings page exposes editable text templates and text/card mode', () => {
   assert.match(markup, /id="push-mode"/);
-  assert.match(markup, /id="message-templates"/);
+  assert.match(markup, /id="show-messages"[^>]*>消息文本</);
+  assert.match(markup, /id="messages-view"/);
+  assert.match(markup, /id="save-message-templates"/);
+  assert.doesNotMatch(markup, /id="message-templates"[\s\S]*id="test-push"/);
   assert.match(source, /renderTemplateEditors/);
   assert.match(source, /collectTemplateValues/);
+  assert.match(source, /insertTemplateVariable/);
+  assert.match(source, /saveMessageTemplates/);
   assert.match(styles, /\.message-template-list/);
   assert.match(styles, /\.message-template-card textarea/);
+});
+
+test('message template cards start collapsed and variables are actionable', () => {
+  assert.match(source, /<details class="message-template-card">/);
+  assert.match(source, /class="variable-chip"/);
+  assert.match(source, /title=\"\$\{safe\(description\)\}\"/);
+  assert.match(styles, /\.variable-chip/);
+});
+
+test('variable insertion replaces selection, inserts at caret, and appends without focus', async () => {
+  class Textarea extends Element {
+    value = 'alpha beta gamma';
+    selectionStart = 6;
+    selectionEnd = 10;
+    focus() { this.focused = true; }
+    setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end; }
+  }
+  const app = setup(async () => ({}));
+  const textarea = new Textarea();
+  const container = app.element('#message-templates');
+  container.querySelector = () => textarea;
+  app.expose('textarea', textarea);
+  app.run('CSS = {escape: value => value}');
+  app.run('rememberTemplateSelection("help_english", textarea)');
+  app.run('document.activeElement = null');
+  await app.run('insertTemplateVariable("help_english", "{title}")');
+  assert.equal(textarea.value, 'alpha {title} gamma');
+  assert.equal(textarea.selectionStart, 13);
+
+  textarea.value = 'first, second';
+  textarea.selectionStart = 7;
+  textarea.selectionEnd = 7;
+  app.run('rememberTemplateSelection("help_english", textarea)');
+  app.run('document.activeElement = null');
+  await app.run('insertTemplateVariable("help_english", "{source}")');
+  assert.equal(textarea.value, 'first, {source}second');
+
+  textarea.value = 'append here';
+  app.run('document.activeElement = null');
+  await app.run('insertTemplateVariable("help_english", "{count}")');
+  assert.equal(textarea.value, 'append here{count}');
 });
 
 test('R18 preference uses a styled yes-or-no select', () => {

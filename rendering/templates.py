@@ -11,6 +11,28 @@ _COMMON = {
     "failed_sources", "subscriptions",
 }
 
+VARIABLE_DESCRIPTIONS = {
+    "title": "动画名称",
+    "item_type": "动画类型",
+    "reminder_label": "提醒标题",
+    "beijing_time": "北京时间",
+    "japan_time": "日本时间",
+    "display_time": "当前设置的显示时间",
+    "source": "数据来源",
+    "schedule_note": "排期说明",
+    "weekday": "星期",
+    "raw_time": "来源原始时间",
+    "lead_minutes": "提前分钟数",
+    "release_date": "上映日期",
+    "release_timezone": "上映日期时区",
+    "target": "推送目标",
+    "count": "数量",
+    "failed_sources": "失败来源",
+    "subscriptions": "订阅列表",
+    "subscription_hint": "订阅提示",
+    "error": "错误信息",
+}
+
 TEMPLATE_DEFINITIONS: dict[str, dict[str, Any]] = {
     "help_english": {"label": "\u82f1\u6587\u5e2e\u52a9", "description": "/anime help \u7684\u56de\u590d", "variables": ()},
     "help_chinese": {"label": "\u4e2d\u6587\u5e2e\u52a9", "description": "/anime\u5e2e\u52a9 \u7684\u56de\u590d", "variables": ()},
@@ -108,6 +130,8 @@ def render_template(key: str, values: Mapping[str, Any] | None = None, overrides
 def template_definitions() -> list[dict[str, Any]]:
     return [
         {"key": key, "label": value["label"], "description": value["description"],
-         "variables": list(value["variables"]), "default": DEFAULT_MESSAGE_TEMPLATES[key]}
+         "variables": list(value["variables"]),
+         "variable_descriptions": {name: VARIABLE_DESCRIPTIONS.get(name, name) for name in value["variables"]},
+         "default": DEFAULT_MESSAGE_TEMPLATES[key]}
         for key, value in TEMPLATE_DEFINITIONS.items()
     ]

@@ -1,6 +1,7 @@
 const bridge = window.AstrBotPluginView;
 const $ = (selector) => document.querySelector(selector);
 const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", showSubscribedOnly: false, weekday: "", sources: {}, movieSources: {}, templateDefinitions: [], preferences: { schedule_source: "earliest", display_timezone: "Asia/Shanghai", exclude_r18: false, push_mode: "text", message_templates: {} }, periodMode: "", periodSelections: { season: "", broadcast: "", year: "" } };
+const templateSelections = new Map();
 
 function currentSeason(now = new Date()) {
   const month = Math.floor((now.getMonth()) / 3) * 3 + 1;
@@ -335,10 +336,13 @@ function render() {
 
 function showView(view) {
   const catalog = view === "catalog";
+  const settings = view === "settings";
   $("#catalog-view").hidden = !catalog;
-  $("#settings-view").hidden = catalog;
+  $("#settings-view").hidden = !settings;
+  $("#messages-view").hidden = view !== "messages";
   $("#show-catalog").classList.toggle("active", catalog);
-  $("#show-settings").classList.toggle("active", !catalog);
+  $("#show-settings").classList.toggle("active", settings);
+  $("#show-messages").classList.toggle("active", view === "messages");
 }
 
 async function saveMovieRelease(item, card) {
@@ -551,16 +555,58 @@ function renderTemplateEditors() {
   if (!container) return;
   const templates = state.preferences.message_templates || {};
   container.innerHTML = state.templateDefinitions.map(definition => `
-    <article class="message-template-card">
-      <div class="message-template-heading"><div><strong>${safe(definition.label)}</strong><small>${safe(definition.description)}</small></div><button class="button button-quiet reset-template" type="button" data-template-key="${safe(definition.key)}">恢复默认</button></div>
+    <details class="message-template-card">
+      <summary><strong>${safe(definition.label)}</strong><button class="button button-quiet reset-template" type="button" data-template-key="${safe(definition.key)}">恢复默认</button></summary>
+      <small class="template-description">${safe(definition.description)}</small>
       <textarea data-template-key="${safe(definition.key)}" rows="4" aria-label="${safe(definition.label)}">${safe(templates[definition.key] ?? definition.default)}</textarea>
-      <small class="template-variables">变量：${(definition.variables || []).map(value => `<code>{${safe(value)}}</code>`).join("、") || "无"}</small>
-    </article>`).join("");
-  container.querySelectorAll?.(".reset-template").forEach(button => button.addEventListener("click", () => {
+      <div class="template-variables"><span>变量：</span>${(definition.variables || []).map(value => {
+        const description = definition.variable_descriptions?.[value] || value;
+        return `<button class="variable-chip" type="button" data-template-key="${safe(definition.key)}" data-variable="{${safe(value)}}" title="${safe(description)}">{${safe(value)}}</button>`;
+      }).join("") || "无"}</div>
+    </details>`).join("");
+  container.querySelectorAll?.(".reset-template").forEach(button => button.addEventListener("click", event => {
+    event.preventDefault();
     const definition = state.templateDefinitions.find(value => value.key === button.dataset.templateKey);
     const textarea = container.querySelector(`textarea[data-template-key="${CSS.escape(button.dataset.templateKey)}"]`);
     if (definition && textarea) textarea.value = definition.default;
   }));
+  container.querySelectorAll?.("summary").forEach(summary => summary.addEventListener("click", event => {
+    if (event.target.closest?.(".reset-template")) event.preventDefault();
+  }));
+  container.querySelectorAll?.("textarea[data-template-key]").forEach(textarea => {
+    const templateKey = textarea.dataset.templateKey;
+    ["click", "input", "keyup", "select", "blur"].forEach(eventName => {
+      textarea.addEventListener(eventName, () => rememberTemplateSelection(templateKey, textarea));
+    });
+  });
+  container.querySelectorAll?.(".variable-chip").forEach(button => button.addEventListener("click", () => {
+    insertTemplateVariable(button.dataset.templateKey, button.dataset.variable);
+  }));
+}
+
+function rememberTemplateSelection(templateKey, textarea) {
+  if (!textarea || !Number.isInteger(textarea.selectionStart) || !Number.isInteger(textarea.selectionEnd)) return;
+  const length = String(textarea.value || "").length;
+  const start = Math.max(0, Math.min(length, textarea.selectionStart));
+  const end = Math.max(start, Math.min(length, textarea.selectionEnd));
+  templateSelections.set(templateKey, {start, end});
+}
+
+function insertTemplateVariable(templateKey, variable) {
+  const textarea = $("#message-templates")?.querySelector?.(`textarea[data-template-key="${CSS.escape(templateKey)}"]`);
+  if (!textarea) return;
+  const focused = document.activeElement === textarea;
+  const current = focused && Number.isInteger(textarea.selectionStart) && Number.isInteger(textarea.selectionEnd)
+    ? {start: textarea.selectionStart, end: textarea.selectionEnd}
+    : templateSelections.get(templateKey);
+  const length = textarea.value.length;
+  const start = current ? Math.max(0, Math.min(length, current.start)) : length;
+  const end = current ? Math.max(start, Math.min(length, current.end)) : start;
+  textarea.value = textarea.value.slice(0, start) + variable + textarea.value.slice(end);
+  textarea.focus();
+  const cursor = start + variable.length;
+  textarea.setSelectionRange(cursor, cursor);
+  templateSelections.set(templateKey, {start: cursor, end: cursor});
 }
 
 function collectTemplateValues() {
@@ -572,14 +618,25 @@ function collectTemplateValues() {
 }
 
 async function savePreferences() {
-  const values = {schedule_source: $("#schedule-source").value, display_timezone: $("#display-timezone").value, exclude_r18: $("#exclude-r18").value === "true", push_mode: $("#push-mode").value, message_templates: collectTemplateValues()};
+  const values = {schedule_source: $("#schedule-source").value, display_timezone: $("#display-timezone").value, exclude_r18: $("#exclude-r18").value === "true", push_mode: $("#push-mode").value};
   try {
     const result = await bridge.apiPost("preferences", values);
     state.preferences = result.preferences;
     applyPreferences();
-    setStatus("排期与时区设置已保存。获取番表后应用新的排期来源。", "notice-success");
+    setStatus("设置已保存。获取番表后应用新的排期来源。", "notice-success");
   } catch (error) {
     setStatus(`设置保存失败：${error.message}`, "notice-error");
+  }
+}
+
+async function saveMessageTemplates() {
+  try {
+    const result = await bridge.apiPost("preferences", {message_templates: collectTemplateValues()});
+    state.preferences = result.preferences;
+    renderTemplateEditors();
+    setStatus("消息文本已保存。", "notice-success");
+  } catch (error) {
+    setStatus(`消息文本保存失败：${error.message}`, "notice-error");
   }
 }
 
@@ -668,6 +725,8 @@ async function init() {
     $("#logout").addEventListener("click", logout);
     $("#show-catalog").addEventListener("click", () => showView("catalog"));
     $("#show-settings").addEventListener("click", () => showView("settings"));
+    $("#show-messages").addEventListener("click", () => showView("messages"));
+    $("#save-message-templates").addEventListener("click", saveMessageTemplates);
     await Promise.all([loadStatus(), loadTargets(), loadItems(false)]);
   } catch (error) { $("#catalog").innerHTML = `<div class="error">管理页面载入失败：${safe(error.message)}</div>`; }
 }

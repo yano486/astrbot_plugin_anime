@@ -10,6 +10,32 @@ from astrbot_plugin_anime.web.api import AnimeWebAPI
 
 
 class WebApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_saving_message_templates_preserves_other_preferences(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = JsonStore(Path(directory) / "state.json")
+            store.set_preferences({
+                "schedule_source": "yuc",
+                "display_timezone": "Asia/Tokyo",
+                "exclude_r18": True,
+                "push_mode": "card",
+            })
+
+            class Plugin:
+                def __init__(self):
+                    self.store = store
+
+            status, body = await AnimeWebAPI(Plugin()).execute(
+                "preferences", "POST", {},
+                {"message_templates": {"test_message": "custom message"}},
+            )
+
+            self.assertEqual(status, 200)
+            self.assertEqual(body["preferences"]["schedule_source"], "yuc")
+            self.assertEqual(body["preferences"]["display_timezone"], "Asia/Tokyo")
+            self.assertTrue(body["preferences"]["exclude_r18"])
+            self.assertEqual(body["preferences"]["push_mode"], "card")
+            self.assertEqual(body["preferences"]["message_templates"]["test_message"], "custom message")
+
     async def test_preferences_return_template_definitions_and_save_push_mode(self):
         from astrbot_plugin_anime.core.store import JsonStore
 

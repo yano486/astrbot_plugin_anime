@@ -10,6 +10,30 @@ from astrbot_plugin_anime.web.api import AnimeWebAPI
 
 
 class WebApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_preferences_return_template_definitions_and_save_push_mode(self):
+        from astrbot_plugin_anime.core.store import JsonStore
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = JsonStore(Path(directory) / "state.json")
+
+            class Plugin:
+                def __init__(self):
+                    self.store = store
+
+            plugin = Plugin()
+            api = AnimeWebAPI(plugin)
+            status, body = await api.execute("preferences", "GET", {})
+            self.assertEqual(status, 200)
+            self.assertTrue(any(item["key"] == "help_english" for item in body["template_definitions"]))
+
+            status, body = await api.execute(
+                "preferences", "POST", {},
+                {"push_mode": "card", "message_templates": {"help_english": "custom help"}},
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(body["preferences"]["push_mode"], "card")
+            self.assertEqual(body["preferences"]["message_templates"]["help_english"], "custom help")
+
     async def test_astrbot_and_remote_servers_register_the_same_api_routes(self):
         from astrbot_plugin_anime.web.api import API_ROUTE_DEFINITIONS
         from astrbot_plugin_anime.web.server import create_remote_web_app

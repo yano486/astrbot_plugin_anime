@@ -40,7 +40,7 @@ class WebValidationTests(unittest.TestCase):
 
         self.assertEqual(
             validate_preferences({"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo"}),
-            {"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo", "exclude_r18": False},
+            {"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo", "exclude_r18": False, "push_mode": "text", "message_templates": {}},
         )
         with self.assertRaisesRegex(ValueError, "schedule_source"):
             validate_preferences({"schedule_source": "unknown"})
@@ -52,7 +52,7 @@ class WebValidationTests(unittest.TestCase):
 
         self.assertEqual(
             validate_preferences({"exclude_r18": True}),
-            {"schedule_source": "earliest", "display_timezone": "Asia/Shanghai", "exclude_r18": True},
+            {"schedule_source": "earliest", "display_timezone": "Asia/Shanghai", "exclude_r18": True, "push_mode": "text", "message_templates": {}},
         )
         with self.assertRaisesRegex(ValueError, "exclude_r18"):
             validate_preferences({"exclude_r18": "true"})

@@ -19,16 +19,17 @@ from .services.refresh import RefreshService
 from .core.store import JsonStore
 from .web.api import AnimeWebAPI
 from .rendering.push_tables import Airing, airings_between, cleanup_generated_tables, render_airings_image, render_weekly_image, render_notification_card, upcoming_movies
+from .rendering.templates import render_template, template_context
 from .core.time_utils import BJ, JST
 
 
 plugin_logger = get_plugin_logger()
 
 
-PLUGIN_VERSION = "0.2.14"
+PLUGIN_VERSION = "0.3.0"
 
 
-@register("astrbot_plugin_anime", "Aut-sep", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)
+@register("astrbot_plugin_anime", "486", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)
 class AnimePlugin(Star):
     def __init__(self, context: Context, config=None):
         super().__init__(context)
@@ -242,12 +243,17 @@ class AnimePlugin(Star):
         raw = tokens[0].casefold()
         extra = tokens[1] if len(tokens) > 1 else ""
         aliases = {
+            "help": "help", "帮助": "help",
             "push": "push", "推送": "push",
             "week": "week", "本周": "week",
             "ova": "ova", "剧场版": "ova", "电影": "ova",
             "sub": "sub", "订阅": "sub",
         }
         return aliases.get(raw, raw), extra
+
+    def _reply(self, key: str, values: dict[str, Any] | None = None) -> str:
+        preferences = self.store.get_preferences()
+        return render_template(key, template_context(values), preferences.get("message_templates", {}))
 
     async def _send_airings_image(self, event: AstrMessageEvent, title: str, rows) -> Any:
         from uuid import uuid4
@@ -260,7 +266,7 @@ class AnimePlugin(Star):
             await asyncio.to_thread(renderer, title, rows, path, preferences["display_timezone"])
         except Exception as exc:
             logger.error(f"[anime] 图表生成失败: {exc}")
-            return event.plain_result(f"图片表生成失败：{exc}")
+            return event.plain_result(self._reply("image_error", {"error": str(exc)}))
         return event.image_result(str(path))
 
     def _cleanup_generated_tables(self) -> None:
@@ -274,25 +280,29 @@ class AnimePlugin(Star):
 
     @filter.command("anime")
     async def anime_command(self, event: AstrMessageEvent, action: str = ""):
+        """Anime schedule tables, subscriptions, help, and reminder management."""
         action_name, extra = self._action_name(event, action)
+        if action_name == "help":
+            yield event.plain_result(self._reply("help_english"))
+            return
         if action_name not in {"push", "week", "ova", "sub"}:
-            yield event.plain_result("命令：/anime push、/anime week、/anime ova、/anime sub（中文后缀也支持）")
+            yield event.plain_result(self._reply("command_usage"))
             return
 
         if action_name == "sub":
             target_id = getattr(event, "unified_msg_origin", None)
             if not target_id:
-                yield event.plain_result("无法识别当前群聊/会话。")
+                yield event.plain_result(self._reply("unknown_session"))
                 return
             if extra.casefold() in {"off", "stop", "关", "关闭"}:
                 target = self.store.state.setdefault("targets", {}).get(target_id)
                 if target is None:
-                    yield event.plain_result("当前会话还没有订阅设置。")
+                    yield event.plain_result(self._reply("no_subscription"))
                     return
                 target["subscribed"] = False
                 target["whitelisted"] = False
                 self.store.save()
-                yield event.plain_result("已关闭自动推送，并从白名单移除当前会话。")
+                yield event.plain_result(self._reply("subscription_disabled"))
                 return
 
             target = self.store.state.setdefault("targets", {}).get(target_id)
@@ -309,10 +319,10 @@ class AnimePlugin(Star):
             target["subscribed"] = True
             target["enabled"] = True
             self.store.save()
-            message = f"已开启自动推送并加入白名单，共订阅 {len(configured)} 部动画。"
+            hint = ""
             if not configured:
-                message += "请在 WebUI 选择该群要提醒的作品和提前分钟数；选好之前不会发送提醒。"
-            yield event.plain_result(message + "关闭请用 /anime sub off 或 /anime 订阅 关闭。")
+                hint = "请在 WebUI 选择该群要提醒的作品和提前分钟数；选好之前不会发送提醒。"
+            yield event.plain_result(self._reply("subscription_status", {"count": len(configured), "subscription_hint": hint}))
             return
 
         preferences = self.store.get_preferences()
@@ -322,7 +332,7 @@ class AnimePlugin(Star):
         if action_name == "ova":
             target_id = getattr(event, "unified_msg_origin", None)
             if not target_id:
-                yield event.plain_result("无法识别当前会话，请先在机器人会话中执行 /anime绑定。")
+                yield event.plain_result(self._reply("unknown_session"))
                 return
             movie_items = {item.key: item for item in self.store.get_movie_items()}
             selected_keys = {
@@ -330,7 +340,7 @@ class AnimePlugin(Star):
                 if sub.enabled and sub.anime_key in movie_items
             }
             if not selected_keys:
-                yield event.plain_result("当前会话尚未在 WebUI 选择剧场版/OVA；请在片单筛选中选好后保存订阅。")
+                yield event.plain_result(self._reply("no_movie_selection"))
                 return
             selected_items = []
             selected_by_key = {}
@@ -369,21 +379,15 @@ class AnimePlugin(Star):
 
     @filter.command("anime帮助")
     async def help(self, event: AstrMessageEvent):
-        yield event.plain_result(
-            "主要命令：/anime push（今日播放表）、/anime week（本周播放表）、/anime ova（已选剧场版/OVA上映表）、/anime sub（开启自动推送）。\n"
-            "后缀也支持中文：推送、本周、剧场版、订阅。\n"
-            "/anime绑定 - 绑定当前群/会话为 WebUI 推送目标\n"
-            "/anime解绑 - 解绑当前目标\n"
-            "/anime列表 - 查看当前目标订阅\n"
-            "/anime刷新 - 管理员刷新当季动画\n"
-            "在 AstrBot 插件详情页打开‘动画订阅’进行筛选和勾选。"
-        )
+        """Show the Chinese command help message."""
+        yield event.plain_result(self._reply("help_chinese"))
 
     @filter.command("anime绑定")
     async def bind_target(self, event: AstrMessageEvent):
+        """Bind the current conversation as a WebUI push target."""
         target_id = getattr(event, "unified_msg_origin", None)
         if not target_id:
-            yield event.plain_result("无法识别当前会话目标，请检查 AstrBot 版本。")
+            yield event.plain_result(self._reply("bind_failure"))
             return
         name = ""
         try:
@@ -392,36 +396,40 @@ class AnimePlugin(Star):
             pass
         self.store.upsert_target(Target(target_id, name, getattr(event, "platform_name", ""), True, datetime.now().isoformat()))
         self.store.save()
-        yield event.plain_result("已绑定当前会话。现在可以在 WebUI 中选择它作为动画提醒目标。")
+        yield event.plain_result(self._reply("bind_success"))
 
     @filter.command("anime解绑")
     async def unbind_target(self, event: AstrMessageEvent):
+        """Unbind the current conversation and remove its subscriptions."""
         target_id = getattr(event, "unified_msg_origin", None)
         if not target_id:
-            yield event.plain_result("无法识别当前会话目标。")
+            yield event.plain_result(self._reply("unbind_failure"))
             return
         self.store.remove_target(target_id)
         self.store.save()
-        yield event.plain_result("当前会话已解绑，相关动画订阅也已移除。")
+        yield event.plain_result(self._reply("unbind_success"))
 
     @filter.command("anime列表")
     async def list_subscriptions(self, event: AstrMessageEvent):
+        """List enabled subscriptions for the current conversation."""
         target_id = getattr(event, "unified_msg_origin", "")
         titles = {item.key: item.title_cn or item.title for item in self.store.get_items()}
         subs = self.store.get_subscriptions(target_id)
         if not subs:
-            yield event.plain_result("当前会话还没有动画订阅。请先 /anime绑定，再到 WebUI 勾选作品。")
+            yield event.plain_result(self._reply("no_subscription"))
             return
         lines = [f"- {titles.get(sub.anime_key, sub.anime_key)}：提前 {sub.lead_minutes} 分钟" for sub in subs if sub.enabled]
-        yield event.plain_result("当前会话订阅：\n" + ("\n".join(lines) if lines else "暂无启用的动画订阅。"))
+        if not lines:
+            yield event.plain_result(self._reply("list_empty"))
+            return
+        yield event.plain_result(self._reply("list_result", {"subscriptions": "\n".join(lines)}))
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("anime刷新")
     async def refresh(self, event: AstrMessageEvent):
+        """Refresh the current season catalog; administrator only."""
         result = await self.refresh_service.refresh(self.current_season())
         failed = [name for name, status in result["sources"].items() if status["status"] == "error"]
-        message = f"动画表刷新完成：{len(result['items'])} 部作品。"
-        if failed:
-            message += " 失败来源：" + ", ".join(failed)
-        yield event.plain_result(message)
+        failed_text = " 失败来源：" + ", ".join(failed) if failed else ""
+        yield event.plain_result(self._reply("refresh_result", {"count": len(result["items"]), "failed_sources": failed_text}))
 

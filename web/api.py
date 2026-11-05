@@ -5,6 +5,7 @@ from typing import Any
 
 from ..core.models import Subscription
 from ..core.time_utils import BJ
+from ..rendering.templates import template_definitions, validate_message_templates
 
 SCHEDULE_SOURCES = {"earliest", "yuc", "bgmlist", "bangumi"}
 DISPLAY_TIMEZONES = {"Asia/Shanghai", "Asia/Tokyo"}
@@ -29,6 +30,8 @@ def validate_preferences(payload: Any) -> dict[str, Any]:
         "schedule_source": payload.get("schedule_source", "earliest"),
         "display_timezone": payload.get("display_timezone", "Asia/Shanghai"),
         "exclude_r18": payload.get("exclude_r18", False),
+        "push_mode": payload.get("push_mode", "text"),
+        "message_templates": payload.get("message_templates", {}),
     }
     if not isinstance(values["schedule_source"], str) or values["schedule_source"] not in SCHEDULE_SOURCES:
         raise ValueError("schedule_source must be earliest, yuc, bgmlist, or bangumi")
@@ -36,6 +39,9 @@ def validate_preferences(payload: Any) -> dict[str, Any]:
         raise ValueError("display_timezone must be Asia/Shanghai or Asia/Tokyo")
     if not isinstance(values["exclude_r18"], bool):
         raise ValueError("exclude_r18 must be a boolean")
+    if values["push_mode"] not in {"text", "card"}:
+        raise ValueError("push_mode must be text or card")
+    values["message_templates"] = validate_message_templates(values["message_templates"])
     return values
 
 
@@ -173,14 +179,15 @@ class AnimeWebAPI:
                     "remote_webui_enabled": self.plugin.remote_webui_enabled,
                     "remote_webui_password_enabled": bool(getattr(self.plugin, "remote_webui_password_enabled", False)),
                     "preferences": self.plugin.store.get_preferences(),
+                    "template_definitions": template_definitions(),
                 }
             if endpoint == "preferences":
                 if method == "GET":
-                    return 200, {"preferences": self.plugin.store.get_preferences()}
+                    return 200, {"preferences": self.plugin.store.get_preferences(), "template_definitions": template_definitions()}
                 values = validate_preferences(payload)
                 self.plugin.store.set_preferences(values)
                 self.plugin.store.save()
-                return 200, {"preferences": self.plugin.store.get_preferences()}
+                return 200, {"preferences": self.plugin.store.get_preferences(), "template_definitions": template_definitions()}
             if endpoint == "items":
                 season = query.get("season", self.plugin.current_season())
                 query_text = str(query.get("q", "")).strip().casefold()
@@ -291,7 +298,13 @@ class AnimeWebAPI:
                 try:
                     kind = (payload or {}).get("kind", "message")
                     if kind == "message":
-                        await self.plugin._deliver(target_id, "🔔 动画订阅测试消息：此会话可以接收插件推送。")
+                        preferences = self.plugin.store.get_preferences()
+                        from ..rendering.templates import render_template
+
+                        await self.plugin._deliver(
+                            target_id,
+                            render_template("test_message", {}, preferences.get("message_templates", {})),
+                        )
                     elif kind in {"reminder_card", "update_card"}:
                         items = self.plugin.store.get_all_items()
                         key = (payload or {}).get("anime_key")

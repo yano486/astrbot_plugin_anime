@@ -25,6 +25,11 @@ class PackageSmokeTests(unittest.TestCase):
         self.assertIsNotNone(metadata_version)
         self.assertIsNotNone(source_version)
         self.assertEqual(metadata_version.group(1), source_version.group(1))
+        self.assertIn("author: 486", metadata)
+        self.assertIn('"0.3.0"', source)
+        self.assertIn('register("astrbot_plugin_anime", "486"', source)
+        self.assertIn("MIT License", (root / "LICENSE").read_text(encoding="utf-8"))
+        self.assertTrue((root / "PROJECT_STRUCTURE.md").is_file())
 
     def test_plugin_entry_and_responsibility_packages_are_stable(self) -> None:
         root = Path(__file__).resolve().parents[1]

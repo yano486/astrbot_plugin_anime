@@ -16,6 +16,29 @@ from astrbot_plugin_anime.main import AnimePlugin
 
 
 class CommandAliasTests(unittest.TestCase):
+    def test_english_and_chinese_help_use_independent_templates(self) -> None:
+        class Store:
+            @staticmethod
+            def get_preferences():
+                return {"message_templates": {"help_english": "EN HELP", "help_chinese": "CN HELP"}}
+
+        class Event:
+            message_str = "/anime help"
+
+            @staticmethod
+            def plain_result(text):
+                return text
+
+        async def collect(generator):
+            return [value async for value in generator]
+
+        plugin = AnimePlugin.__new__(AnimePlugin)
+        plugin.store = Store()
+        english = asyncio.run(collect(plugin.anime_command(Event(), "help")))
+        chinese = asyncio.run(collect(plugin.help(Event())))
+        self.assertEqual(english, ["EN HELP"])
+        self.assertEqual(chinese, ["CN HELP"])
+
     def test_english_suffixes(self) -> None:
         for raw, expected in (("push", "push"), ("week", "week"), ("ova", "ova"), ("sub", "sub")):
             self.assertEqual(AnimePlugin._action_name(object(), raw)[0], expected)

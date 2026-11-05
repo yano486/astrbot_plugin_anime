@@ -259,6 +259,15 @@ test('settings page exposes whitelist, test-push, and remote WebUI status', () =
   assert.match(source, /class="button button-quiet remove-whitelist"/);
 });
 
+test('settings page exposes editable text templates and text/card mode', () => {
+  assert.match(markup, /id="push-mode"/);
+  assert.match(markup, /id="message-templates"/);
+  assert.match(source, /renderTemplateEditors/);
+  assert.match(source, /collectTemplateValues/);
+  assert.match(styles, /\.message-template-list/);
+  assert.match(styles, /\.message-template-card textarea/);
+});
+
 test('R18 preference uses a styled yes-or-no select', () => {
   assert.match(markup, /id="exclude-r18"[^>]*>[\s\S]*>否</);
   assert.match(markup, /id="exclude-r18"[^>]*>[\s\S]*>是</);

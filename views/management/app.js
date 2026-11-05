@@ -1,6 +1,6 @@
 const bridge = window.AstrBotPluginView;
 const $ = (selector) => document.querySelector(selector);
-const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", showSubscribedOnly: false, weekday: "", sources: {}, movieSources: {}, preferences: { schedule_source: "earliest", display_timezone: "Asia/Shanghai", exclude_r18: false }, periodMode: "", periodSelections: { season: "", broadcast: "", year: "" } };
+const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", showSubscribedOnly: false, weekday: "", sources: {}, movieSources: {}, templateDefinitions: [], preferences: { schedule_source: "earliest", display_timezone: "Asia/Shanghai", exclude_r18: false, push_mode: "text", message_templates: {} }, periodMode: "", periodSelections: { season: "", broadcast: "", year: "" } };
 
 function currentSeason(now = new Date()) {
   const month = Math.floor((now.getMonth()) / 3) * 3 + 1;
@@ -403,6 +403,7 @@ async function loadItems(shouldRefresh = false, fullYear = false) {
 async function loadStatus() {
   const data = await bridge.apiGet("status");
   state.preferences = {...state.preferences, ...(data.preferences || {})};
+  state.templateDefinitions = data.template_definitions || state.templateDefinitions;
   applyPreferences();
   state.sources = data.sources || {}; state.movieSources = data.movie_sources || {}; renderSources();
   sourceChoices();
@@ -536,14 +537,42 @@ function applyPreferences() {
   $("#schedule-source").value = state.preferences.schedule_source;
   $("#display-timezone").value = state.preferences.display_timezone;
   $("#exclude-r18").value = String(Boolean(state.preferences.exclude_r18));
+  $("#push-mode").value = state.preferences.push_mode || "text";
+  renderTemplateEditors();
   window.AnimeControls?.refresh($("#schedule-source"));
   window.AnimeControls?.refresh($("#display-timezone"));
   window.AnimeControls?.refresh($("#exclude-r18"));
+  window.AnimeControls?.refresh($("#push-mode"));
   render();
 }
 
+function renderTemplateEditors() {
+  const container = $("#message-templates");
+  if (!container) return;
+  const templates = state.preferences.message_templates || {};
+  container.innerHTML = state.templateDefinitions.map(definition => `
+    <article class="message-template-card">
+      <div class="message-template-heading"><div><strong>${safe(definition.label)}</strong><small>${safe(definition.description)}</small></div><button class="button button-quiet reset-template" type="button" data-template-key="${safe(definition.key)}">恢复默认</button></div>
+      <textarea data-template-key="${safe(definition.key)}" rows="4" aria-label="${safe(definition.label)}">${safe(templates[definition.key] ?? definition.default)}</textarea>
+      <small class="template-variables">变量：${(definition.variables || []).map(value => `<code>{${safe(value)}}</code>`).join("、") || "无"}</small>
+    </article>`).join("");
+  container.querySelectorAll?.(".reset-template").forEach(button => button.addEventListener("click", () => {
+    const definition = state.templateDefinitions.find(value => value.key === button.dataset.templateKey);
+    const textarea = container.querySelector(`textarea[data-template-key="${CSS.escape(button.dataset.templateKey)}"]`);
+    if (definition && textarea) textarea.value = definition.default;
+  }));
+}
+
+function collectTemplateValues() {
+  const values = {};
+  $("#message-templates")?.querySelectorAll?.("textarea[data-template-key]").forEach(textarea => {
+    values[textarea.dataset.templateKey] = textarea.value;
+  });
+  return values;
+}
+
 async function savePreferences() {
-  const values = {schedule_source: $("#schedule-source").value, display_timezone: $("#display-timezone").value, exclude_r18: $("#exclude-r18").value === "true"};
+  const values = {schedule_source: $("#schedule-source").value, display_timezone: $("#display-timezone").value, exclude_r18: $("#exclude-r18").value === "true", push_mode: $("#push-mode").value, message_templates: collectTemplateValues()};
   try {
     const result = await bridge.apiPost("preferences", values);
     state.preferences = result.preferences;

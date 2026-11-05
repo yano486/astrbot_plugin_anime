@@ -101,6 +101,7 @@ class ReminderScheduler:
                         occurrence,
                         movie_date_only,
                         preferences.get("display_timezone", "Asia/Shanghai"),
+                        preferences.get("message_templates", {}),
                     )
                     delivery_exception = False
                     try:
@@ -135,6 +136,7 @@ class ReminderScheduler:
         occurrence: datetime | None = None,
         date_only: bool = False,
         display_timezone: str = "Asia/Shanghai",
+        template_overrides: dict[str, str] | None = None,
     ) -> str:
         from ..rendering.formatters import format_reminder
 
@@ -147,8 +149,10 @@ class ReminderScheduler:
                 "即将上映" if kind == "lead" else "按时上映",
                 date_only,
                 display_timezone,
+                template_overrides,
             )
-        return format_reminder(item, schedule, "即将播出" if kind == "lead" else "按时开播", display_timezone)
+        template_key = "reminder_lead" if kind == "lead" else "reminder_on_time"
+        return format_reminder(item, schedule, "即将播出" if kind == "lead" else "按时开播", display_timezone, template_key, template_overrides)
 
 
 def _release_occurrence(value: str, timezone_name: str = "Asia/Shanghai") -> datetime | None:

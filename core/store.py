@@ -6,12 +6,15 @@ from pathlib import Path
 from typing import Any
 
 from .models import AnimeItem, Subscription, Target
+from ..rendering.templates import DEFAULT_MESSAGE_TEMPLATES
 
 
 DEFAULT_PREFERENCES = {
     "schedule_source": "earliest",
     "display_timezone": "Asia/Shanghai",
     "exclude_r18": False,
+    "push_mode": "text",
+    "message_templates": dict(DEFAULT_MESSAGE_TEMPLATES),
 }
 
 
@@ -77,7 +80,9 @@ class JsonStore:
         return str(self.state.get("movie_release_overrides", {}).get(item_key, ""))
 
     def get_preferences(self) -> dict[str, str]:
-        return {**DEFAULT_PREFERENCES, **self.state.get("preferences", {})}
+        saved = self.state.get("preferences", {})
+        templates = {**DEFAULT_MESSAGE_TEMPLATES, **saved.get("message_templates", {})}
+        return {**DEFAULT_PREFERENCES, **saved, "message_templates": templates}
 
     def set_preferences(self, values: dict[str, str]) -> None:
         self.state["preferences"] = {**self.get_preferences(), **values}

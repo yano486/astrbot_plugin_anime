@@ -15,10 +15,11 @@ from astrbot.api.star import Context, Star, StarTools, register
 from .core.models import Target
 from .core.diagnostics import configure_plugin_logging, get_plugin_logger
 from .services.scheduler import ReminderScheduler
+from .services.table_scheduler import SubscriptionTableScheduler
 from .services.refresh import RefreshService
 from .core.store import JsonStore
 from .web.api import AnimeWebAPI
-from .rendering.push_tables import Airing, airings_between, cleanup_generated_tables, render_airings_image, render_weekly_image, render_notification_card, upcoming_movies
+from .rendering.push_tables import Airing, airings_between, cleanup_generated_tables, render_airings_image, render_weekly_image, render_notification_card, render_subscription_table_image, upcoming_movies
 from .rendering.templates import render_template, template_context
 from .core.time_utils import BJ, JST
 
@@ -26,7 +27,7 @@ from .core.time_utils import BJ, JST
 plugin_logger = get_plugin_logger()
 
 
-PLUGIN_VERSION = "0.3.3"
+PLUGIN_VERSION = "0.3.4"
 
 
 @register("astrbot_plugin_anime", "486", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)
@@ -44,6 +45,7 @@ class AnimePlugin(Star):
         self.session: aiohttp.ClientSession | None = None
         self.refresh_service: RefreshService | None = None
         self.scheduler: ReminderScheduler | None = None
+        self.table_scheduler: SubscriptionTableScheduler | None = None
         self.web_api = AnimeWebAPI(self)
         self._initial_refresh: asyncio.Task | None = None
         self._refresh_task: asyncio.Task | None = None
@@ -79,6 +81,8 @@ class AnimePlugin(Star):
         await self._start_remote_webui()
         self.scheduler = ReminderScheduler(self.store, self._deliver)
         await self.scheduler.start()
+        self.table_scheduler = SubscriptionTableScheduler(self.store, self._deliver_subscription_table)
+        await self.table_scheduler.start()
         self._refresh_task = asyncio.create_task(self._refresh_periodically())
         if self._season_catalog_needs_refresh() or self._movie_catalog_needs_refresh():
             self._initial_refresh = asyncio.create_task(self._refresh_quietly())
@@ -86,6 +90,8 @@ class AnimePlugin(Star):
     async def terminate(self) -> None:
         if self.scheduler:
             await self.scheduler.stop()
+        if self.table_scheduler:
+            await self.table_scheduler.stop()
         tasks = [task for task in (self._initial_refresh, self._refresh_task) if task]
         for task in tasks:
             task.cancel()
@@ -219,6 +225,22 @@ class AnimePlugin(Star):
             result = await self.context.send_message(target_id, chain)
             if result is False:
                 raise RuntimeError("AstrBot reported that the target card was not sent")
+            return True
+        finally:
+            path.unlink(missing_ok=True)
+
+    async def _deliver_subscription_table(self, target_id: str, kind: str, rows, display_timezone: str) -> bool:
+        from uuid import uuid4
+
+        self._cleanup_generated_tables()
+        path = self.data_dir / "push_tables" / f"{uuid4().hex}.png"
+        title = "每日订阅番表" if kind == "daily" else "本周订阅番表"
+        try:
+            await asyncio.to_thread(render_subscription_table_image, title, rows, path, display_timezone)
+            chain = MessageChain().file_image(str(path))
+            result = await self.context.send_message(target_id, chain)
+            if result is False:
+                raise RuntimeError("AstrBot reported that the subscription table was not sent")
             return True
         finally:
             path.unlink(missing_ok=True)

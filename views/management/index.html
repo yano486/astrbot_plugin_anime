@@ -79,10 +79,20 @@
         </div>
         <small>默认提前 15 分钟提醒 TV / 有时间排期的 WEB 动画。Bangumi 含有 R18 元素时，勾选后会排除这些内容；日本 23:00 与北京时间 22:00 是同一时刻。</small>
       </section>
+      <section class="preference-panel table-push-panel">
+        <div><h2>订阅番表图片推送</h2><p>按每个目标已勾选的 TV / WEB 动画生成图片；OVA 和剧场版不加入此表。</p></div>
+        <div class="preference-controls">
+          <div class="preference-field"><span>每日推送</span><select id="daily-table-enabled" aria-label="每日订阅番表图片推送"><option value="false">否</option><option value="true">是</option></select></div>
+          <div class="preference-field"><span>每日时间</span><input id="daily-table-time" type="text" value="00:00" inputmode="numeric" maxlength="5" pattern="(?:[01]\d|2[0-3]):[0-5]\d" aria-label="每日订阅番表推送时间"></div>
+          <div class="preference-field"><span>每周一推送</span><select id="weekly-table-enabled" aria-label="每周订阅番表图片推送"><option value="false">否</option><option value="true">是</option></select></div>
+          <div class="preference-field"><span>每周一时间</span><input id="weekly-table-time" type="text" value="00:00" inputmode="numeric" maxlength="5" pattern="(?:[01]\d|2[0-3]):[0-5]\d" aria-label="每周订阅番表推送时间"></div>
+        </div>
+        <small>默认关闭，默认时间为 00:00；时间按上方选择的显示与推送时区计算。图片采用独立的固定样式，不跟随 WebUI 亮色或暗色切换。</small>
+      </section>
       <section class="test-push-panel">
         <div class="test-push-heading"><div><h2>推送测试</h2><p>先选择目标；可测试文字消息、开播提醒图片卡片或单部动画更新卡片。</p></div></div>
         <div class="test-push-targets"><select id="test-target" aria-label="选择测试推送目标"><option value="">选择推送目标</option></select><select id="test-item" aria-label="选择动画更新卡片作品"><option value="">选择动画</option></select></div>
-        <div class="test-push-actions"><button class="button button-quiet" id="test-push">消息测试</button><button class="button button-accent" id="test-reminder-card">开播提醒卡片</button><button class="button button-quiet" id="test-update-card">动画更新卡片</button></div>
+        <div class="test-push-actions"><button class="button button-quiet" id="test-push">消息测试</button><button class="button button-accent" id="test-reminder-card">开播提醒卡片</button><button class="button button-quiet" id="test-update-card">动画更新卡片</button><button class="button button-quiet" id="test-daily-table">每日番表图片</button><button class="button button-quiet" id="test-weekly-table">每周番表图片</button></div>
         <div id="test-push-status" role="status"></div>
       </section>
       <section class="remote-info"><div><strong>WebUI 访问</strong><p id="remote-webui-status">远程 WebUI 地址读取中…</p><small>监听地址、端口和登录密码可在 AstrBot 插件配置中修改；AstrBot 内嵌管理页仍可使用。请勿将 HTTP 服务暴露到公网。</small></div><button class="button button-quiet" id="logout" type="button" hidden>退出登录</button></section>

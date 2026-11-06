@@ -14,6 +14,10 @@ DEFAULT_PREFERENCES = {
     "display_timezone": "Asia/Shanghai",
     "exclude_r18": False,
     "push_mode": "text",
+    "daily_table_enabled": False,
+    "daily_table_time": "00:00",
+    "weekly_table_enabled": False,
+    "weekly_table_time": "00:00",
     "message_templates": dict(DEFAULT_MESSAGE_TEMPLATES),
 }
 

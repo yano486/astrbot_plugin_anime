@@ -92,6 +92,44 @@ class CommandAliasTests(unittest.TestCase):
             self.assertEqual(result, generated[0])
             self.assertTrue(result.exists())
 
+    def test_subscription_table_delivery_uses_fixed_renderer_and_cleans_file(self) -> None:
+        class Store:
+            @staticmethod
+            def get_preferences():
+                return {"display_timezone": "Asia/Shanghai"}
+
+        class Context:
+            def __init__(self):
+                self.sent = []
+
+            async def send_message(self, target, chain):
+                self.sent.append((target, chain))
+                return True
+
+        async def run(directory):
+            plugin = AnimePlugin.__new__(AnimePlugin)
+            plugin.data_dir = Path(directory)
+            plugin.store = Store()
+            plugin.context = Context()
+            generated = []
+
+            def render(title, rows, path, timezone):
+                Path(path).parent.mkdir(parents=True, exist_ok=True)
+                Path(path).write_bytes(b"table")
+                generated.append((title, timezone, Path(path)))
+
+            with patch("astrbot_plugin_anime.main.render_subscription_table_image", side_effect=render):
+                result = await plugin._deliver_subscription_table("group:1", "daily", [], "Asia/Shanghai")
+            return result, plugin.context.sent, generated
+
+        with tempfile.TemporaryDirectory() as directory:
+            result, sent, generated = asyncio.run(run(directory))
+
+            self.assertTrue(result)
+            self.assertEqual(sent[0][0], "group:1")
+            self.assertEqual(generated[0][0:2], ("每日订阅番表", "Asia/Shanghai"))
+            self.assertFalse(generated[0][2].exists())
+
 
 if __name__ == "__main__":
     unittest.main()

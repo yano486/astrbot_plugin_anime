@@ -26,7 +26,7 @@ class PackageSmokeTests(unittest.TestCase):
         self.assertIsNotNone(source_version)
         self.assertEqual(metadata_version.group(1), source_version.group(1))
         self.assertIn('author: !!str 486', metadata)
-        self.assertIn('"0.3.3"', source)
+        self.assertIn('"0.3.4"', source)
         self.assertIn('register("astrbot_plugin_anime", "486"', source)
         self.assertIn("MIT License", (root / "LICENSE").read_text(encoding="utf-8"))
         self.assertTrue((root / "PROJECT_STRUCTURE.md").is_file())
@@ -40,7 +40,7 @@ class PackageSmokeTests(unittest.TestCase):
         expected_files = {
             "core": ("diagnostics.py", "merge.py", "models.py", "schedule_utils.py", "store.py", "time_utils.py"),
             "rendering": ("formatters.py", "push_tables.py"),
-            "services": ("refresh.py", "scheduler.py"),
+            "services": ("refresh.py", "scheduler.py", "table_scheduler.py"),
             "web": ("api.py", "server.py"),
         }
         for package, files in expected_files.items():

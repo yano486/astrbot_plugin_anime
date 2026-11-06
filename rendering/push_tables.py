@@ -248,6 +248,20 @@ def render_weekly_image(title: str, rows: list[Airing], output: Path, display_ti
     return output
 
 
+def render_subscription_table_image(
+    title: str,
+    rows: list[Airing],
+    output: Path,
+    display_timezone: str = "Asia/Shanghai",
+) -> Path:
+    """Render scheduled subscription tables with a fixed image palette.
+
+    This intentionally does not accept or inspect the WebUI theme. Image messages
+    keep their own dark presentation regardless of the management page theme.
+    """
+    return render_weekly_image(title, rows, output, display_timezone)
+
+
 def render_notification_card(item: AnimeItem, mode: str, output: Path, display_timezone: str = "Asia/Shanghai") -> Path:
     if mode not in {"reminder", "update"}:
         raise ValueError("mode must be reminder or update")

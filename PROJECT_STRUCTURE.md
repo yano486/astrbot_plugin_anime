@@ -11,7 +11,7 @@ astrbot_plugin_anime/
   requirements.txt     Python dependencies
   core/                Shared models, storage, time handling, merge logic, and diagnostics
   rendering/           Text templates, message formatters, and image table rendering
-  services/            Catalog refresh and reminder scheduling
+  services/            Catalog refresh, reminder scheduling, and subscription table scheduling
   web/                 Embedded AstrBot API and standalone remote WebUI server
   sources/              Bangumi, bgmlist, and YUC source adapters
   views/               WebUI HTML, JavaScript, CSS, and login assets
@@ -25,5 +25,6 @@ astrbot_plugin_anime/
 - Change reminder text formatting in `rendering/formatters.py`.
 - Change saved WebUI preferences and validation in `core/store.py` and `web/api.py`.
 - Change data-source behavior in `sources/` and refresh orchestration in `services/refresh.py`.
+- Change daily/weekly subscription table timing in `services/table_scheduler.py`.
 - Run the Python suite with `PYTHONPATH=.. python -m unittest discover -s tests -v`.
 - Run the WebUI suite with `node --test tests/test_login.mjs tests/test_management.mjs`.

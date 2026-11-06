@@ -223,6 +223,7 @@ class WebApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     self.store = store
                     self.messages = []
                     self.cards = []
+                    self.table_tests = []
 
                 @staticmethod
                 def current_season(): return "2026-10"
@@ -235,7 +236,16 @@ class WebApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     self.cards.append((target, item.key, mode))
                     return True
 
+                class TableScheduler:
+                    def __init__(self, owner):
+                        self.owner = owner
+
+                    async def send_test(self, target_id, kind):
+                        self.owner.table_tests.append((target_id, kind))
+                        return True
+
             plugin = Plugin()
+            plugin.table_scheduler = plugin.TableScheduler(plugin)
             api = AnimeWebAPI(plugin)
             status, body = await api.execute("items", "GET", {"season": "2026-10"})
             self.assertEqual(status, 200)
@@ -273,6 +283,14 @@ class WebApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(status, 200)
                 self.assertTrue(body["sent"])
                 self.assertEqual(plugin.cards[-1], ("group:1", "tv:1", expected_mode))
+
+            for kind, table_kind in (("daily_table", "daily"), ("weekly_table", "weekly")):
+                status, body = await api.execute("test-push", "POST", {}, {
+                    "target_id": "group:1", "kind": kind,
+                })
+                self.assertEqual(status, 200)
+                self.assertEqual(body, {"sent": True, "kind": kind})
+                self.assertEqual(plugin.table_tests[-1], ("group:1", table_kind))
 
             status, body = await api.execute("preferences", "POST", {}, {
                 "schedule_source": "yuc", "display_timezone": "Asia/Tokyo",

@@ -524,6 +524,18 @@ async function sendCardTest(kind) {
   }
 }
 
+async function sendTableTest(kind) {
+  const targetId = $("#test-target").value;
+  if (!targetId) { $("#test-push-status").textContent = "请先选择推送目标。"; return; }
+  $("#test-push-status").textContent = "正在生成并发送订阅番表图片…";
+  try {
+    await bridge.apiPost("test-push", {target_id: targetId, kind: kind === "daily" ? "daily_table" : "weekly_table"});
+    $("#test-push-status").textContent = `${kind === "daily" ? "每日" : "每周"}番表图片已发送。`;
+  } catch (error) {
+    $("#test-push-status").textContent = `番表图片发送失败：${error.message}`;
+  }
+}
+
 async function addUmoTarget() {
   const input = $("#umo-target");
   try {
@@ -542,11 +554,17 @@ function applyPreferences() {
   $("#display-timezone").value = state.preferences.display_timezone;
   $("#exclude-r18").value = String(Boolean(state.preferences.exclude_r18));
   $("#push-mode").value = state.preferences.push_mode || "text";
+  $("#daily-table-enabled").value = String(Boolean(state.preferences.daily_table_enabled));
+  $("#daily-table-time").value = state.preferences.daily_table_time || "00:00";
+  $("#weekly-table-enabled").value = String(Boolean(state.preferences.weekly_table_enabled));
+  $("#weekly-table-time").value = state.preferences.weekly_table_time || "00:00";
   renderTemplateEditors();
   window.AnimeControls?.refresh($("#schedule-source"));
   window.AnimeControls?.refresh($("#display-timezone"));
   window.AnimeControls?.refresh($("#exclude-r18"));
   window.AnimeControls?.refresh($("#push-mode"));
+  window.AnimeControls?.refresh($("#daily-table-enabled"));
+  window.AnimeControls?.refresh($("#weekly-table-enabled"));
   render();
 }
 
@@ -618,7 +636,16 @@ function collectTemplateValues() {
 }
 
 async function savePreferences() {
-  const values = {schedule_source: $("#schedule-source").value, display_timezone: $("#display-timezone").value, exclude_r18: $("#exclude-r18").value === "true", push_mode: $("#push-mode").value};
+  const values = {
+    schedule_source: $("#schedule-source").value,
+    display_timezone: $("#display-timezone").value,
+    exclude_r18: $("#exclude-r18").value === "true",
+    push_mode: $("#push-mode").value,
+    daily_table_enabled: $("#daily-table-enabled").value === "true",
+    daily_table_time: $("#daily-table-time").value.trim(),
+    weekly_table_enabled: $("#weekly-table-enabled").value === "true",
+    weekly_table_time: $("#weekly-table-time").value.trim(),
+  };
   try {
     const result = await bridge.apiPost("preferences", values);
     state.preferences = result.preferences;
@@ -718,6 +745,8 @@ async function init() {
     $("#test-push").addEventListener("click", sendTestPush);
     $("#test-reminder-card").addEventListener("click", () => sendCardTest("reminder_card"));
     $("#test-update-card").addEventListener("click", () => sendCardTest("update_card"));
+    $("#test-daily-table").addEventListener("click", () => sendTableTest("daily"));
+    $("#test-weekly-table").addEventListener("click", () => sendTableTest("weekly"));
     $("#add-umo").addEventListener("click", addUmoTarget);
     $("#save-preferences").addEventListener("click", savePreferences);
     $("#toggle-theme").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));

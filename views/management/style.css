@@ -93,6 +93,8 @@ html[data-theme="dark"] .view-tab:not(.active):hover{background:#23322d;color:va
 .settings-heading>div,.remote-info>div{min-width:0}
 .preference-controls{align-items:end}
 .preference-controls .preference-field{display:grid;flex:1;min-width:190px;gap:5px;color:var(--muted);font-size:11px;font-weight:700}
+.preference-controls .preference-field input[type="text"]{width:100%;min-height:42px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--control-bg);color:var(--ink);font-size:13px;font-variant-numeric:tabular-nums}
+.preference-controls .preference-field input[type="text"]:focus{outline:3px solid var(--focus-ring);outline-offset:1px}
 .preference-field .select-control{width:100%}
 .preference-field .select-trigger{font-size:12px}
 .test-push-targets .select-control{min-width:0}

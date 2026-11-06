@@ -15,6 +15,7 @@ from astrbot_plugin_anime.rendering.push_tables import (
     upcoming_movies,
     render_airings_image,
     render_notification_card,
+    render_subscription_table_image,
 )
 
 
@@ -72,6 +73,17 @@ class PushTableTests(unittest.TestCase):
                 with Image.open(path) as image:
                     self.assertEqual(image.format, "PNG")
                     self.assertGreater(image.width, 500)
+
+    def test_subscription_table_uses_fixed_dark_image_style(self) -> None:
+        rows = airings_between(
+            [self.item],
+            datetime(2026, 10, 5, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")),
+            datetime(2026, 10, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = render_subscription_table_image("每日订阅番表", rows, Path(directory) / "table.png")
+            with Image.open(path) as image:
+                self.assertEqual(image.getpixel((0, 0)), (13, 13, 24))
 
     def test_generated_table_cleanup_removes_only_expired_plugin_pngs(self) -> None:
         import os

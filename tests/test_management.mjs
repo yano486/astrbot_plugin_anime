@@ -253,11 +253,23 @@ test('settings page exposes whitelist, test-push, and remote WebUI status', () =
   assert.match(markup, /id="display-timezone"/);
   assert.match(markup, /id="test-reminder-card"/);
   assert.match(markup, /id="test-update-card"/);
+  assert.match(markup, /id="test-daily-table"/);
+  assert.match(markup, /id="test-weekly-table"/);
+  assert.match(source, /sendTableTest/);
   assert.match(markup, /id="toggle-theme"/);
   assert.match(markup, /id="exclude-r18"/);
   assert.match(markup, /排除 R18/);
   assert.match(source, /removeWhitelist/);
   assert.match(source, /class="button button-quiet remove-whitelist"/);
+});
+
+test('settings page exposes disabled daily and weekly subscription table schedules at midnight', () => {
+  assert.match(markup, /id="daily-table-enabled"/);
+  assert.match(markup, /id="daily-table-time"[^>]*value="00:00"/);
+  assert.match(markup, /id="weekly-table-enabled"/);
+  assert.match(markup, /id="weekly-table-time"[^>]*value="00:00"/);
+  assert.match(source, /daily_table_enabled/);
+  assert.match(source, /weekly_table_time/);
 });
 
 test('settings page exposes editable text templates and text/card mode', () => {

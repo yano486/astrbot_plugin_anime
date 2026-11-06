@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+import re
 from typing import Any
 
 from ..core.models import Subscription
@@ -9,6 +10,7 @@ from ..rendering.templates import template_definitions, validate_message_templat
 
 SCHEDULE_SOURCES = {"earliest", "yuc", "bgmlist", "bangumi"}
 DISPLAY_TIMEZONES = {"Asia/Shanghai", "Asia/Tokyo"}
+TABLE_TIME_PATTERN = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
 API_ROUTE_DEFINITIONS = (
     ("status", "status", ("GET",), "Anime plugin status"),
     ("preferences", "preferences", ("GET", "POST"), "Schedule and display preferences"),
@@ -31,6 +33,10 @@ def validate_preferences(payload: Any) -> dict[str, Any]:
         "display_timezone": payload.get("display_timezone", "Asia/Shanghai"),
         "exclude_r18": payload.get("exclude_r18", False),
         "push_mode": payload.get("push_mode", "text"),
+        "daily_table_enabled": payload.get("daily_table_enabled", False),
+        "daily_table_time": payload.get("daily_table_time", "00:00"),
+        "weekly_table_enabled": payload.get("weekly_table_enabled", False),
+        "weekly_table_time": payload.get("weekly_table_time", "00:00"),
         "message_templates": payload.get("message_templates", {}),
     }
     if not isinstance(values["schedule_source"], str) or values["schedule_source"] not in SCHEDULE_SOURCES:
@@ -41,6 +47,12 @@ def validate_preferences(payload: Any) -> dict[str, Any]:
         raise ValueError("exclude_r18 must be a boolean")
     if values["push_mode"] not in {"text", "card"}:
         raise ValueError("push_mode must be text or card")
+    for key in ("daily_table_enabled", "weekly_table_enabled"):
+        if not isinstance(values[key], bool):
+            raise ValueError(f"{key} must be a boolean")
+    for key in ("daily_table_time", "weekly_table_time"):
+        if not isinstance(values[key], str) or not TABLE_TIME_PATTERN.fullmatch(values[key]):
+            raise ValueError(f"{key} must use HH:MM format")
     values["message_templates"] = validate_message_templates(values["message_templates"])
     return values
 
@@ -316,8 +328,15 @@ class AnimeWebAPI:
                         if item is None:
                             return 400, {"error": "no suitable anime found; refresh catalog or select an anime"}
                         await self.plugin._deliver_card(target_id, item, "reminder" if kind == "reminder_card" else "update")
+                    elif kind in {"daily_table", "weekly_table"}:
+                        table_scheduler = getattr(self.plugin, "table_scheduler", None)
+                        if table_scheduler is None:
+                            return 503, {"error": "subscription table scheduler is not ready"}
+                        table_kind = "daily" if kind == "daily_table" else "weekly"
+                        if not await table_scheduler.send_test(target_id, table_kind):
+                            raise RuntimeError("subscription table was not sent")
                     else:
-                        return 400, {"error": "kind must be message, reminder_card, or update_card"}
+                        return 400, {"error": "kind must be message, reminder_card, update_card, daily_table, or weekly_table"}
                 except Exception as exc:
                     return 502, {"error": f"test push failed: {exc}"}
                 return 200, {"sent": True, "kind": kind}

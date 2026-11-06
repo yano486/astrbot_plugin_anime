@@ -40,7 +40,7 @@ class WebValidationTests(unittest.TestCase):
 
         self.assertEqual(
             validate_preferences({"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo"}),
-            {"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo", "exclude_r18": False, "push_mode": "text", "message_templates": {}},
+            {"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo", "exclude_r18": False, "push_mode": "text", "daily_table_enabled": False, "daily_table_time": "00:00", "weekly_table_enabled": False, "weekly_table_time": "00:00", "message_templates": {}},
         )
         with self.assertRaisesRegex(ValueError, "schedule_source"):
             validate_preferences({"schedule_source": "unknown"})
@@ -52,10 +52,37 @@ class WebValidationTests(unittest.TestCase):
 
         self.assertEqual(
             validate_preferences({"exclude_r18": True}),
-            {"schedule_source": "earliest", "display_timezone": "Asia/Shanghai", "exclude_r18": True, "push_mode": "text", "message_templates": {}},
+            {"schedule_source": "earliest", "display_timezone": "Asia/Shanghai", "exclude_r18": True, "push_mode": "text", "daily_table_enabled": False, "daily_table_time": "00:00", "weekly_table_enabled": False, "weekly_table_time": "00:00", "message_templates": {}},
         )
         with self.assertRaisesRegex(ValueError, "exclude_r18"):
             validate_preferences({"exclude_r18": "true"})
+
+    def test_subscription_table_preferences_default_to_disabled_midnight(self) -> None:
+        from astrbot_plugin_anime.web.api import validate_preferences
+
+        values = validate_preferences({})
+        self.assertFalse(values["daily_table_enabled"])
+        self.assertEqual(values["daily_table_time"], "00:00")
+        self.assertFalse(values["weekly_table_enabled"])
+        self.assertEqual(values["weekly_table_time"], "00:00")
+
+    def test_subscription_table_preferences_validate_switches_and_times(self) -> None:
+        from astrbot_plugin_anime.web.api import validate_preferences
+
+        values = validate_preferences({
+            "daily_table_enabled": True,
+            "daily_table_time": "08:30",
+            "weekly_table_enabled": True,
+            "weekly_table_time": "23:59",
+        })
+        self.assertTrue(values["daily_table_enabled"])
+        self.assertEqual(values["daily_table_time"], "08:30")
+        self.assertTrue(values["weekly_table_enabled"])
+        self.assertEqual(values["weekly_table_time"], "23:59")
+        with self.assertRaisesRegex(ValueError, "daily_table_time"):
+            validate_preferences({"daily_table_time": "24:00"})
+        with self.assertRaisesRegex(ValueError, "weekly_table_enabled"):
+            validate_preferences({"weekly_table_enabled": "true"})
 
     def test_umo_target_requires_astrbot_three_part_format(self) -> None:
         from astrbot_plugin_anime.web.api import validate_umo_target

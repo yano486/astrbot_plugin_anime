@@ -8,24 +8,29 @@
 </head>
 <body>
   <main class="shell">
-    <header class="masthead">
-      <div>
-        <p class="eyebrow">SEASONAL ANIME / SCHEDULE</p>
-        <h1>本季，<em>按时相见。</em></h1>
-        <p class="lede">筛选作品，勾选订阅；提醒时间按北京时间计算。</p>
-      </div>
-      <div class="mast-actions">
-        <button class="button button-dark" id="refresh">获取番表</button>
-        <button class="button button-quiet" id="toggle-theme" type="button" aria-pressed="false">切换暗色</button>
-      </div>
-    </header>
+    <div class="app-shell">
+      <aside class="app-rail">
+        <div class="app-brand"><span class="app-brand-mark">A</span><span>动画订阅</span></div>
+        <nav class="view-tabs" aria-label="管理页面导航">
+          <button class="view-tab active" id="show-catalog" type="button"><span class="nav-glyph">⌂</span>动画订阅</button>
+          <button class="view-tab" id="show-settings" type="button"><span class="nav-glyph">⚙</span>设置</button>
+          <button class="view-tab" id="show-messages" type="button"><span class="nav-glyph">▤</span>消息文本</button>
+        </nav>
+        <div class="app-rail-note">推荐使用 WebUI 管理<br>图片样式独立于页面主题</div>
+      </aside>
 
-    <nav class="view-tabs" aria-label="管理页面导航">
-      <button class="view-tab active" id="show-catalog" type="button">动画订阅</button>
-      <button class="view-tab" id="show-settings" type="button">设置</button>
-      <button class="view-tab" id="show-messages" type="button">消息文本</button>
-      <span>推荐使用 WebUI 管理订阅与提醒</span>
-    </nav>
+      <div class="workspace">
+        <header class="masthead">
+          <div>
+            <p class="eyebrow">ANIME / SUBSCRIPTION WORKBENCH</p>
+            <h1>动画订阅</h1>
+            <p class="lede">筛选作品，勾选订阅；提醒时间按北京时间计算。</p>
+          </div>
+          <div class="mast-actions">
+            <button class="button button-dark" id="refresh">获取番表</button>
+            <button class="button button-quiet" id="toggle-theme" type="button" aria-pressed="false">切换暗色</button>
+          </div>
+        </header>
 
     <section id="catalog-view">
     <section class="statusbar">
@@ -106,7 +111,9 @@
       </section>
     </section>
 
-    <footer><span>排期仅代表来源记录，不等于视频实际上线。</span></footer>
+        <footer><span>排期仅代表来源记录，不等于视频实际上线。</span></footer>
+      </div>
+    </div>
   </main>
   <script src="./bridge.js"></script>
   <script src="./controls.js"></script>

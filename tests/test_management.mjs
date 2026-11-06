@@ -263,6 +263,17 @@ test('settings page exposes whitelist, test-push, and remote WebUI status', () =
   assert.match(source, /class="button button-quiet remove-whitelist"/);
 });
 
+test('blueprint workbench uses a rail layout and teal-blue visual language', () => {
+  assert.match(markup, /class="app-shell"/);
+  assert.match(markup, /class="app-rail"/);
+  assert.match(markup, /class="workspace"/);
+  assert.match(markup, /class="app-brand"/);
+  assert.match(styles, /--blueprint-bg/);
+  assert.match(styles, /--blueprint-accent/);
+  assert.match(styles, /\.app-rail/);
+  assert.match(styles, /\.app-shell/);
+});
+
 test('settings page exposes disabled daily and weekly subscription table schedules at midnight', () => {
   assert.match(markup, /id="daily-table-enabled"/);
   assert.match(markup, /id="daily-table-time"[^>]*value="00:00"/);
@@ -274,7 +285,7 @@ test('settings page exposes disabled daily and weekly subscription table schedul
 
 test('settings page exposes editable text templates and text/card mode', () => {
   assert.match(markup, /id="push-mode"/);
-  assert.match(markup, /id="show-messages"[^>]*>消息文本</);
+  assert.match(markup, /id="show-messages"[^>]*>[\s\S]*消息文本</);
   assert.match(markup, /id="messages-view"/);
   assert.match(markup, /id="save-message-templates"/);
   assert.doesNotMatch(markup, /id="message-templates"[\s\S]*id="test-push"/);
@@ -349,16 +360,15 @@ test('catalog actions use a fixed bottom dock with compact inline status', () =>
 });
 
 test('catalog fetch status wraps below target controls instead of shrinking the selector', () => {
-  assert.match(styles, /\.catalog-command-row \.target-row\{[^}]*flex-wrap:wrap/);
-  assert.match(styles, /\.catalog-command-row \.target-row \.status-inline\{flex:\s*1 1 100%/);
-  assert.match(styles, /\.catalog-command-row \.target-row \.select-control\{[^}]*min-width:0/);
+  assert.match(styles, /\.target-row\{[^}]*flex-wrap:wrap/);
+  assert.match(styles, /\.status-inline\{[^}]*flex:\s*1 1 360px/);
+  assert.match(styles, /\.target-row select,\.target-row \.select-control\{min-width:0;flex:1/);
 });
 
 test('bottom status message can expand within the fixed target row', () => {
   assert.match(styles, /\.status-inline\{[^}]*flex:\s*1 1 360px/s);
-  assert.match(styles, /\.status-inline\{[^}]*max-width:none/s);
-  assert.doesNotMatch(styles, /\.status-inline\{[^}]*max-width:260px/);
-  assert.match(styles, /@media\(max-width:650px\)\{\.catalog-command-row \.target-row \.status-inline\{flex-basis:100%\}/);
+  assert.doesNotMatch(styles, /\.status-inline\{[^}]*max-width:/);
+  assert.match(styles, /\.status-inline\{flex-basis:100%/);
 });
 
 test('calendar month navigation restores focus after rerendering month buttons', () => {
@@ -370,16 +380,15 @@ test('calendar month navigation restores focus after rerendering month buttons',
 
 test('fetch button keeps readable foreground colors in both themes', () => {
   assert.match(markup, /id="refresh"[^>]*>获取番表</);
-  assert.match(styles, /\.mast-actions\s+#refresh\{[^}]*color:#fff/s);
-  assert.match(styles, /html\[data-theme="dark"\] \.button-dark\{[^}]*color:#182526/);
+  assert.match(styles, /\.button-dark,\.button-accent\{[^}]*color:#fff/s);
+  assert.match(styles, /html\[data-theme="dark"\]\{[^}]*--blueprint-accent/);
 });
 
 test('weekday buttons receive more toolbar width than adaptation and year filters', () => {
   assert.match(markup, /id="period-filter"/);
-  assert.ok(styles.includes('.toolbar{grid-template-columns:minmax(115px,.8fr) minmax(80px,.65fr) minmax(280px,2fr) minmax(90px,.55fr) minmax(90px,.55fr) minmax(90px,.65fr)'));
-  assert.match(styles, /\.toolbar #adaptation-filter,\.toolbar #period-filter\{max-width:145px\}/);
-  assert.match(styles, /\.weekday-buttons button\{[^}]*min-height:42px/);
-  assert.ok(styles.includes('.toolbar .weekday-filter{grid-column:1/-1}'));
+  assert.match(styles, /\.toolbar\{[^}]*grid-template-columns:minmax\(112px,.8fr\) minmax\(80px,.65fr\) minmax\(260px,2fr\)/);
+  assert.match(styles, /\.weekday-buttons button\{[^}]*min-height:38px/);
+  assert.match(styles, /\.toolbar \.weekday-filter\{grid-column:1\/-1\}/);
 });
 
 test('empty future sources produce a compact fetch result instead of an error toast', () => {
@@ -394,8 +403,8 @@ test('catalog fetch action is labelled as getting the schedule', () => {
 });
 
 test('catalog navigation and headings use subscription wording and settings owns push tests', () => {
-  assert.match(markup, /id="show-catalog"[^>]*>动画订阅</);
-  assert.match(markup, /id="show-settings"[^>]*>设置</);
+  assert.match(markup, /id="show-catalog"[^>]*>[\s\S]*动画订阅</);
+  assert.match(markup, /id="show-settings"[^>]*>[\s\S]*设置</);
   assert.match(markup, /<h2>动画订阅列表<\/h2>/);
   assert.doesNotMatch(markup, /季度片单|设置与推送测试/);
   assert.doesNotMatch(markup, /class="section-index"/);
@@ -414,7 +423,7 @@ test('management UI loads custom controls and does not use native date inputs', 
   assert.match(styles, /\.select-popover\[data-placement="top"\]/);
   assert.match(styles, /\.date-popover\[data-placement="top"\]/);
   assert.match(styles, /\.date-popover\[data-align="right"\]/);
-  assert.match(styles, /\.catalog-command-row \.target-row \.select-control\{width:auto;flex:1/);
+  assert.match(styles, /\.target-row select,\.target-row \.select-control\{min-width:0;flex:1/);
 });
 
 test('push test panel uses a full-width heading and separate responsive control rows', () => {
@@ -423,8 +432,8 @@ test('push test panel uses a full-width heading and separate responsive control 
   assert.match(markup, /class="test-push-actions"[\s\S]*id="test-reminder-card"[\s\S]*id="test-update-card"/);
   assert.match(styles, /\.test-push-panel\s*\{[^}]*display:\s*grid/s);
   assert.match(styles, /\.test-push-actions\s*\{[^}]*grid-template-columns/s);
-  assert.match(styles, /\.test-push-panel\{[^}]*padding:12px 14px/);
-  assert.match(styles, /\.test-push-actions \.button\{[^}]*min-height:40px/s);
+  assert.match(styles, /\.test-push-panel\{[^}]*padding:13px 14px/);
+  assert.match(styles, /\.test-push-actions \.button\{[^}]*font-size:10px/s);
 });
 
 test('YUC remains available in source filter even when the current items lack it', () => {

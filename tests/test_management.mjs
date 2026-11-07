@@ -289,8 +289,13 @@ test('blueprint settings and test actions use readable columns', () => {
 });
 
 test('expanded message templates use the full content width', () => {
-  assert.match(styles, /\.message-template-card\[open\]\{grid-column:1\/-1\}/);
+  assert.match(styles, /\.message-template-list\{grid-template-columns:1fr\}/);
+  assert.doesNotMatch(styles, /\.message-template-card\[open\]\{grid-column:1\/-1\}/);
   assert.match(styles, /\.message-template-card summary strong\{[^}]*font-size:13px/);
+});
+
+test('settings and messages views fill the same workspace as the catalog', () => {
+  assert.match(styles, /#settings-view,#messages-view\{width:100%/);
 });
 
 test('settings panels share a stacked heading and control layout', () => {

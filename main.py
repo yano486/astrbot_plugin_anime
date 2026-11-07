@@ -27,7 +27,7 @@ from .core.time_utils import BJ, JST
 plugin_logger = get_plugin_logger()
 
 
-PLUGIN_VERSION = "0.3.8"
+PLUGIN_VERSION = "0.3.9"
 
 
 @register("astrbot_plugin_anime", "486", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)

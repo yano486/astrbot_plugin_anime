@@ -293,16 +293,20 @@ test('message templates use two-column rows with local accordion behavior', () =
   assert.doesNotMatch(styles, /\.message-template-card\[open\]\{grid-column:1\/-1\}/);
   assert.match(styles, /\.message-template-card summary strong\{[^}]*font-size:13px/);
   assert.match(styles, /\.test-push-targets,\.message-template-list\{grid-template-columns:1fr\}/);
-  assert.match(source, /templateCardsInSameRow/);
+  assert.match(source, /closePeerTemplateCards/);
   assert.match(source, /event\.shiftKey/);
   assert.match(source, /peer\.open = false/);
 });
 
 test('settings and messages views fill the same workspace as the catalog', () => {
+  assert.match(styles, /\.app-shell\{[^}]*width:100%/);
+  assert.match(styles, /\.workspace\{[^}]*width:100%;max-width:none/);
   assert.match(styles, /#settings-view,#messages-view\{width:100%/);
-  assert.match(markup, /class="mast-actions"[\s\S]*id="save-message-templates"[\s\S]*id="toggle-theme"/);
-  assert.doesNotMatch(markup, /id="messages-view"[\s\S]*id="save-message-templates"/);
-  assert.match(source, /\$\("#save-message-templates"\)\.hidden = view !== "messages"/);
+  assert.match(markup, /<div class="mast-actions">[\s\S]*?<\/div>/);
+  const mastActions = markup.match(/<div class="mast-actions">[\s\S]*?<\/div>/)?.[0] || "";
+  assert.doesNotMatch(mastActions, /save-message-templates/);
+  assert.match(markup, /id="messages-view"[\s\S]*class="settings-heading"[\s\S]*id="save-message-templates"/);
+  assert.match(styles, /\.settings-heading,\.remote-info\{[^}]*justify-content:space-between/);
 });
 
 test('settings panels share a stacked heading and control layout', () => {

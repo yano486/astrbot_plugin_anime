@@ -340,7 +340,6 @@ function showView(view) {
   $("#catalog-view").hidden = !catalog;
   $("#settings-view").hidden = !settings;
   $("#messages-view").hidden = view !== "messages";
-  $("#save-message-templates").hidden = view !== "messages";
   $("#show-catalog").classList.toggle("active", catalog);
   $("#show-settings").classList.toggle("active", settings);
   $("#show-messages").classList.toggle("active", view === "messages");
@@ -584,18 +583,10 @@ function renderTemplateEditors() {
       }).join("") || "无"}</div>
     </details>`).join("");
   const cards = Array.from(container.querySelectorAll?.(".message-template-card") || []);
-  cards.forEach(card => {
-    const summary = card.querySelector?.("summary");
-    summary?.addEventListener("click", event => {
-      card.dataset.keepRowOpen = event.shiftKey ? "true" : "false";
-    });
-    card.addEventListener("toggle", () => {
-      if (!card.open || card.dataset.keepRowOpen === "true") return;
-      cards.forEach(peer => {
-        if (peer !== card && peer.open && templateCardsInSameRow(cards, card, peer)) peer.open = false;
-      });
-    });
-  });
+  cards.forEach(card => card.querySelector?.("summary")?.addEventListener("click", event => {
+    if (event.target.closest?.(".reset-template") || card.open || event.shiftKey) return;
+    closePeerTemplateCards(cards, card);
+  }));
   container.querySelectorAll?.(".reset-template").forEach(button => button.addEventListener("click", event => {
     event.preventDefault();
     const definition = state.templateDefinitions.find(value => value.key === button.dataset.templateKey);
@@ -616,13 +607,15 @@ function renderTemplateEditors() {
   }));
 }
 
-function templateCardsInSameRow(cards, first, second) {
+function closePeerTemplateCards(cards, card) {
   const narrow = window.matchMedia?.("(max-width: 650px)")?.matches
     || (!window.matchMedia && Number(window.innerWidth || 0) > 0 && window.innerWidth <= 650);
-  if (narrow) return false;
-  const firstIndex = cards.indexOf(first);
-  const secondIndex = cards.indexOf(second);
-  return firstIndex >= 0 && secondIndex >= 0 && Math.floor(firstIndex / 2) === Math.floor(secondIndex / 2);
+  if (narrow) return;
+  const index = cards.indexOf(card);
+  if (index < 0) return;
+  cards.forEach((peer, peerIndex) => {
+    if (peer !== card && peer.open && Math.floor(peerIndex / 2) === Math.floor(index / 2)) peer.open = false;
+  });
 }
 
 function rememberTemplateSelection(templateKey, textarea) {

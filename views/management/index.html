@@ -28,7 +28,6 @@
           </div>
           <div class="mast-actions">
             <button class="button button-dark" id="refresh">获取番表</button>
-            <button class="button button-accent" id="save-message-templates" type="button" hidden>保存消息文本</button>
             <button class="button button-quiet" id="toggle-theme" type="button" aria-pressed="false">切换暗色</button>
           </div>
         </header>
@@ -105,7 +104,7 @@
     </section>
 
     <section id="messages-view" hidden>
-      <section class="settings-heading"><div><h2>消息文本</h2><p>可分别修改命令回复和自动提醒文本；变量会在发送时替换为实际内容。</p></div></section>
+      <section class="settings-heading"><div><h2>消息文本</h2><p>可分别修改命令回复和自动提醒文本；变量会在发送时替换为实际内容。</p></div><button class="button button-accent" id="save-message-templates" type="button">保存消息文本</button></section>
       <section class="message-template-panel">
         <div id="message-templates" class="message-template-list"></div>
         <small>点击模板标题展开编辑。同一行默认只展开一个；按住 Shift 点击可同时展开。有选区时替换选区，有光标时插入光标处，否则追加到文本末尾。卡片通道暂时保持现有样式。</small>

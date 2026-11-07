@@ -290,7 +290,7 @@ test('blueprint settings and test actions use readable columns', () => {
 
 test('message templates use two-column rows with local accordion behavior', () => {
   assert.match(styles, /\.message-template-list\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)/);
-  assert.match(styles, /\.message-template-list\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);gap:8px;align-items:start\}/);
+  assert.match(styles, /\.message-template-list\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);gap:8px;align-items:start;grid-auto-rows:max-content\}/);
   assert.doesNotMatch(styles, /\.message-template-card\[open\]\{grid-column:1\/-1\}/);
   assert.match(styles, /\.message-template-card summary strong\{[^}]*font-size:13px/);
   assert.match(styles, /\.test-push-targets,\.message-template-list\{grid-template-columns:1fr\}/);
@@ -300,6 +300,7 @@ test('message templates use two-column rows with local accordion behavior', () =
   assert.doesNotMatch(styles, /\.message-template-card\[open\] textarea\{[^}]*height:100%;min-height:0/);
   assert.doesNotMatch(styles, /\.message-template-card\[open\] textarea\{[^}]*resize:none/);
   assert.doesNotMatch(styles, /\.message-template-card\[open\] \.template-variables\{[^}]*overflow:auto/);
+  assert.match(styles, /\.message-template-card textarea\{[^}]*width:calc\(100% - 24px\);height:120px;min-height:120px/);
   assert.match(styles, /\.message-template-card textarea\{[^}]*resize:vertical/);
 });
 

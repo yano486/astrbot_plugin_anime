@@ -288,14 +288,21 @@ test('blueprint settings and test actions use readable columns', () => {
   assert.match(styles, /\.test-push-actions \.button\{[^}]*min-height:42px/);
 });
 
-test('expanded message templates use the full content width', () => {
-  assert.match(styles, /\.message-template-list\{grid-template-columns:1fr\}/);
+test('message templates use two-column rows with local accordion behavior', () => {
+  assert.match(styles, /\.message-template-list\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)/);
   assert.doesNotMatch(styles, /\.message-template-card\[open\]\{grid-column:1\/-1\}/);
   assert.match(styles, /\.message-template-card summary strong\{[^}]*font-size:13px/);
+  assert.match(styles, /\.test-push-targets,\.message-template-list\{grid-template-columns:1fr\}/);
+  assert.match(source, /templateCardsInSameRow/);
+  assert.match(source, /event\.shiftKey/);
+  assert.match(source, /peer\.open = false/);
 });
 
 test('settings and messages views fill the same workspace as the catalog', () => {
   assert.match(styles, /#settings-view,#messages-view\{width:100%/);
+  assert.match(markup, /class="mast-actions"[\s\S]*id="save-message-templates"[\s\S]*id="toggle-theme"/);
+  assert.doesNotMatch(markup, /id="messages-view"[\s\S]*id="save-message-templates"/);
+  assert.match(source, /\$\("#save-message-templates"\)\.hidden = view !== "messages"/);
 });
 
 test('settings panels share a stacked heading and control layout', () => {

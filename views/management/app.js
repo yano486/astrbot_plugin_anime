@@ -340,6 +340,7 @@ function showView(view) {
   $("#catalog-view").hidden = !catalog;
   $("#settings-view").hidden = !settings;
   $("#messages-view").hidden = view !== "messages";
+  $("#save-message-templates").hidden = view !== "messages";
   $("#show-catalog").classList.toggle("active", catalog);
   $("#show-settings").classList.toggle("active", settings);
   $("#show-messages").classList.toggle("active", view === "messages");
@@ -582,6 +583,19 @@ function renderTemplateEditors() {
         return `<button class="variable-chip" type="button" data-template-key="${safe(definition.key)}" data-variable="{${safe(value)}}" title="${safe(description)}">{${safe(value)}}</button>`;
       }).join("") || "无"}</div>
     </details>`).join("");
+  const cards = Array.from(container.querySelectorAll?.(".message-template-card") || []);
+  cards.forEach(card => {
+    const summary = card.querySelector?.("summary");
+    summary?.addEventListener("click", event => {
+      card.dataset.keepRowOpen = event.shiftKey ? "true" : "false";
+    });
+    card.addEventListener("toggle", () => {
+      if (!card.open || card.dataset.keepRowOpen === "true") return;
+      cards.forEach(peer => {
+        if (peer !== card && peer.open && templateCardsInSameRow(cards, card, peer)) peer.open = false;
+      });
+    });
+  });
   container.querySelectorAll?.(".reset-template").forEach(button => button.addEventListener("click", event => {
     event.preventDefault();
     const definition = state.templateDefinitions.find(value => value.key === button.dataset.templateKey);
@@ -600,6 +614,15 @@ function renderTemplateEditors() {
   container.querySelectorAll?.(".variable-chip").forEach(button => button.addEventListener("click", () => {
     insertTemplateVariable(button.dataset.templateKey, button.dataset.variable);
   }));
+}
+
+function templateCardsInSameRow(cards, first, second) {
+  const narrow = window.matchMedia?.("(max-width: 650px)")?.matches
+    || (!window.matchMedia && Number(window.innerWidth || 0) > 0 && window.innerWidth <= 650);
+  if (narrow) return false;
+  const firstIndex = cards.indexOf(first);
+  const secondIndex = cards.indexOf(second);
+  return firstIndex >= 0 && secondIndex >= 0 && Math.floor(firstIndex / 2) === Math.floor(secondIndex / 2);
 }
 
 function rememberTemplateSelection(templateKey, textarea) {

@@ -1,7 +1,7 @@
 name: astrbot_plugin_anime
 display_name: 动画季度订阅
 desc: Seasonal Japanese anime catalog with WebUI subscriptions, customizable command replies, and text/card reminder settings.
-version: 0.3.9
+version: 0.3.10
 author: !!str 486
 repo: https://github.com/yano486/astrbot_plugin_anime
 category: entertainment

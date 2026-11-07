@@ -290,14 +290,17 @@ test('blueprint settings and test actions use readable columns', () => {
 
 test('message templates use two-column rows with local accordion behavior', () => {
   assert.match(styles, /\.message-template-list\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)/);
-  assert.match(styles, /\.message-template-list\{align-items:start\}/);
+  assert.match(styles, /\.message-template-list\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);gap:8px;align-items:stretch\}/);
   assert.doesNotMatch(styles, /\.message-template-card\[open\]\{grid-column:1\/-1\}/);
   assert.match(styles, /\.message-template-card summary strong\{[^}]*font-size:13px/);
   assert.match(styles, /\.test-push-targets,\.message-template-list\{grid-template-columns:1fr\}/);
   assert.doesNotMatch(source, /closePeerTemplateCards|event\.shiftKey|peer\.open\s*=\s*false/);
-  assert.match(styles, /\.message-template-card:not\(\[open\]\)\{height:50px/);
-  assert.match(styles, /\.message-template-card\[open\]\{display:grid;grid-template-rows:48px 2\.8em minmax\(0,1fr\) 34px;height:320px/);
-  assert.match(styles, /\.message-template-card\[open\] textarea\{[^}]*height:100%;min-height:0/);
+  assert.doesNotMatch(styles, /\.message-template-card:not\(\[open\]\)\{height:50px/);
+  assert.doesNotMatch(styles, /\.message-template-card\[open\]\{display:grid;grid-template-rows/);
+  assert.doesNotMatch(styles, /\.message-template-card\[open\] textarea\{[^}]*height:100%;min-height:0/);
+  assert.doesNotMatch(styles, /\.message-template-card\[open\] textarea\{[^}]*resize:none/);
+  assert.doesNotMatch(styles, /\.message-template-card\[open\] \.template-variables\{[^}]*overflow:auto/);
+  assert.match(styles, /\.message-template-card textarea\{[^}]*resize:vertical/);
 });
 
 test('settings and messages views fill the same workspace as the catalog', () => {

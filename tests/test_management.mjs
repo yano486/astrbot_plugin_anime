@@ -288,6 +288,17 @@ test('blueprint settings and test actions use readable columns', () => {
   assert.match(styles, /\.test-push-actions \.button\{[^}]*min-height:42px/);
 });
 
+test('expanded message templates use the full content width', () => {
+  assert.match(styles, /\.message-template-card\[open\]\{grid-column:1\/-1\}/);
+  assert.match(styles, /\.message-template-card summary strong\{[^}]*font-size:13px/);
+});
+
+test('settings panels share a stacked heading and control layout', () => {
+  assert.match(styles, /\.preference-panel\{[^}]*grid-template-columns:1fr/);
+  assert.match(styles, /\.preference-controls\{[^}]*display:grid/);
+  assert.match(styles, /\.settings-heading h2,\.preference-panel h2,\.test-push-panel h2\{[^}]*font-size:21px/);
+});
+
 test('settings page exposes disabled daily and weekly subscription table schedules at midnight', () => {
   assert.match(markup, /id="daily-table-enabled"/);
   assert.match(markup, /id="daily-table-time"[^>]*value="00:00"/);

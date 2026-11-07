@@ -274,6 +274,20 @@ test('blueprint workbench uses a rail layout and teal-blue visual language', () 
   assert.match(styles, /\.app-shell/);
 });
 
+test('blueprint catalog gives content more breathing room', () => {
+  assert.match(markup, /id="source"[\s\S]*id="weekday-buttons"/);
+  assert.match(styles, /\.catalog\{[^}]*grid-template-columns:repeat\(2,minmax\(360px,1fr\)/);
+  assert.match(styles, /\.weekday-filter\{grid-column:1\/-1/);
+  assert.match(styles, /--blueprint-body-size:13px/);
+  assert.match(styles, /line-height:1\.5/);
+});
+
+test('blueprint settings and test actions use readable columns', () => {
+  assert.match(styles, /\.preference-controls\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)/);
+  assert.match(styles, /\.test-push-actions\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)/);
+  assert.match(styles, /\.test-push-actions \.button\{[^}]*min-height:42px/);
+});
+
 test('settings page exposes disabled daily and weekly subscription table schedules at midnight', () => {
   assert.match(markup, /id="daily-table-enabled"/);
   assert.match(markup, /id="daily-table-time"[^>]*value="00:00"/);

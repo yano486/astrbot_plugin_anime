@@ -582,11 +582,6 @@ function renderTemplateEditors() {
         return `<button class="variable-chip" type="button" data-template-key="${safe(definition.key)}" data-variable="{${safe(value)}}" title="${safe(description)}">{${safe(value)}}</button>`;
       }).join("") || "无"}</div>
     </details>`).join("");
-  const cards = Array.from(container.querySelectorAll?.(".message-template-card") || []);
-  cards.forEach(card => card.querySelector?.("summary")?.addEventListener("click", event => {
-    if (event.target.closest?.(".reset-template") || card.open || event.shiftKey) return;
-    closePeerTemplateCards(cards, card);
-  }));
   container.querySelectorAll?.(".reset-template").forEach(button => button.addEventListener("click", event => {
     event.preventDefault();
     const definition = state.templateDefinitions.find(value => value.key === button.dataset.templateKey);
@@ -605,17 +600,6 @@ function renderTemplateEditors() {
   container.querySelectorAll?.(".variable-chip").forEach(button => button.addEventListener("click", () => {
     insertTemplateVariable(button.dataset.templateKey, button.dataset.variable);
   }));
-}
-
-function closePeerTemplateCards(cards, card) {
-  const narrow = window.matchMedia?.("(max-width: 650px)")?.matches
-    || (!window.matchMedia && Number(window.innerWidth || 0) > 0 && window.innerWidth <= 650);
-  if (narrow) return;
-  const index = cards.indexOf(card);
-  if (index < 0) return;
-  cards.forEach((peer, peerIndex) => {
-    if (peer !== card && peer.open && Math.floor(peerIndex / 2) === Math.floor(index / 2)) peer.open = false;
-  });
 }
 
 function rememberTemplateSelection(templateKey, textarea) {

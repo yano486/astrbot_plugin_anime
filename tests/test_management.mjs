@@ -294,9 +294,10 @@ test('message templates use two-column rows with local accordion behavior', () =
   assert.doesNotMatch(styles, /\.message-template-card\[open\]\{grid-column:1\/-1\}/);
   assert.match(styles, /\.message-template-card summary strong\{[^}]*font-size:13px/);
   assert.match(styles, /\.test-push-targets,\.message-template-list\{grid-template-columns:1fr\}/);
-  assert.match(source, /closePeerTemplateCards/);
-  assert.match(source, /event\.shiftKey/);
-  assert.match(source, /peer\.open = false/);
+  assert.doesNotMatch(source, /closePeerTemplateCards|event\.shiftKey|peer\.open\s*=\s*false/);
+  assert.match(styles, /\.message-template-card:not\(\[open\]\)\{height:50px/);
+  assert.match(styles, /\.message-template-card\[open\]\{display:grid;grid-template-rows:48px 2\.8em minmax\(0,1fr\) 34px;height:320px/);
+  assert.match(styles, /\.message-template-card\[open\] textarea\{[^}]*height:100%;min-height:0/);
 });
 
 test('settings and messages views fill the same workspace as the catalog', () => {

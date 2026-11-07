@@ -62,3 +62,6 @@ footer{font-size:11px;line-height:1.5}
 .test-push-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
 .test-push-actions .button{min-height:42px;font-size:11px;line-height:1.35}
 @media(max-width:650px){.preference-controls{grid-template-columns:1fr}.test-push-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Keep a compact card beside an expanded card instead of stretching the whole grid row. */
+.message-template-list{align-items:start}

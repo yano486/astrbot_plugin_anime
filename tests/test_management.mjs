@@ -290,6 +290,7 @@ test('blueprint settings and test actions use readable columns', () => {
 
 test('message templates use two-column rows with local accordion behavior', () => {
   assert.match(styles, /\.message-template-list\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)/);
+  assert.match(styles, /\.message-template-list\{align-items:start\}/);
   assert.doesNotMatch(styles, /\.message-template-card\[open\]\{grid-column:1\/-1\}/);
   assert.match(styles, /\.message-template-card summary strong\{[^}]*font-size:13px/);
   assert.match(styles, /\.test-push-targets,\.message-template-list\{grid-template-columns:1fr\}/);

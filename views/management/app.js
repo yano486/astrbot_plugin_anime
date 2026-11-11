@@ -158,6 +158,7 @@ function setStatus(message, kind = "") {
   const text = notice.querySelector?.(".status-inline-text");
   if (text) text.textContent = message;
   else notice.textContent = message;
+  notice.title = message;
   notice.className = `status-inline ${kind}`.trim();
   notice.hidden = !message;
 }

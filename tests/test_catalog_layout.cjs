@@ -71,7 +71,7 @@ async function main() {
       await frame.waitForFunction(() => document.querySelectorAll('.anime-card').length === 132);
       for (const theme of ['dark', 'light']) {
         await frame.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
-        for (const width of [1440, 1332, 1250, 1100, 960, 834, 821, 820, 768, 651, 650, 540, 390, 360]) {
+        for (const width of [1889, 1440, 1332, 1250, 1100, 960, 834, 821, 820, 768, 651, 650, 540, 390, 360]) {
           await page.setViewportSize({ width, height: 900 });
           for (const status of ['', '设置已保存。获取番组后应用新的排期来源。', '获取失败：来源响应超时，已保留已有数据。' + '请稍后重试，当前订阅不会丢失。'.repeat(6)]) {
             await frame.evaluate(status => {
@@ -85,12 +85,17 @@ async function main() {
               const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { x:r.x, y:r.y, width:r.width, height:r.height, right:r.right, bottom:r.bottom }; };
               const overflow = document.documentElement.scrollWidth > innerWidth;
               const overflowing = overflow ? [...document.querySelectorAll('body *')].filter(el => el.getBoundingClientRect().right > innerWidth + 1).slice(0, 8).map(el => ({ tag:el.tagName, class:el.className, right:el.getBoundingClientRect().right })) : [];
-              return { viewport: innerWidth, overflow, overflowing, trigger:rect('#target + .select-trigger'), dock:rect('.catalog-command-row'), status:rect('#save-status'), read:rect('#load-subs'), save:rect('#save-subs') };
+              const text = document.querySelector('.status-inline-text');
+              return { viewport: innerWidth, overflow, overflowing, trigger:rect('#target + .select-trigger'), dock:rect('.catalog-command-row'), status:rect('#save-status'), read:rect('#load-subs'), save:rect('#save-subs'), hint:rect('.target-hint'), search:rect('.search'), noticeLines:text.scrollHeight / parseFloat(getComputedStyle(text).lineHeight) };
             });
             const label = `${embedded ? 'embedded' : 'remote'} ${theme} ${width} ${status ? 'status' : 'clear'}`;
             measurements.push({ label, ...metrics });
             if (metrics.trigger.width < 200 || metrics.trigger.height > 55 || metrics.overflow || metrics.dock.height > 330 || Math.abs(metrics.dock.bottom - 900) > 1) failures.push({ label, ...metrics });
-            if (status && (metrics.status.width > 441 || metrics.status.width >= metrics.dock.width * 0.9 || Math.abs(metrics.status.right - metrics.save.right) > 1)) failures.push({ label: `${label}: notice must be compact and aligned to the right`, ...metrics });
+            if (status && (metrics.status.width > 441 || metrics.status.width >= metrics.dock.width * 0.9)) failures.push({ label: `${label}: notice must stay compact`, ...metrics });
+            if (status && width > 740 && (metrics.status.x < metrics.save.right || Math.abs(metrics.status.y + metrics.status.height / 2 - metrics.save.y - metrics.save.height / 2) > 1)) failures.push({ label: `${label}: notice must follow save on the same row`, ...metrics });
+            if (status && width <= 740 && Math.abs(metrics.status.right - metrics.save.right) > 1) failures.push({ label: `${label}: narrow notice must align to the right`, ...metrics });
+            if (status && metrics.noticeLines > 1.1) failures.push({ label: `${label}: notice text must stay on one line`, ...metrics });
+            if (width > 1080 && Math.abs(metrics.hint.y + metrics.hint.height / 2 - metrics.search.y - metrics.search.height / 2) > 1) failures.push({ label: `${label}: binding hint must share the desktop row`, ...metrics });
             if (output && width === 1332 && status.startsWith('设置') && theme === 'dark' && !embedded) await frame.locator('.catalog-command-row').screenshot({ path: path.join(output, 'dock.png') });
           }
         }
@@ -110,6 +115,7 @@ async function main() {
       await frame.waitForFunction(() => document.querySelectorAll('.anime-card').length === 132);
       await frame.locator('#save-subs').click();
       await frame.waitForFunction(() => document.querySelector('#save-status').textContent.includes('已保存'));
+      assert.equal(await frame.locator('#save-status').getAttribute('title'), await frame.locator('#save-status').textContent());
       assert.equal(posts.at(-1).body.target_id, target);
       const longLabel = await frame.locator('#target + .select-trigger').getAttribute('title');
       assert.match(longLabel, /已绑定的测试群聊/);

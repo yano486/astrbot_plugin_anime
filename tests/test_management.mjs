@@ -481,14 +481,14 @@ test('catalog actions use a fixed bottom dock with compact inline status', () =>
   assert.doesNotMatch(styles, /\.status-notice\{/);
 });
 
-test('catalog fetch status occupies a separate grid row from target controls', () => {
-  assert.match(styles, /\.target-row\{[^}]*grid-template-columns:auto minmax\(220px,1fr\) auto auto/);
-  assert.match(styles, /\.status-inline\{[^}]*grid-column:1\/-1/);
+test('catalog fetch status follows the target controls on the same desktop row', () => {
+  assert.match(styles, /\.target-row\{[^}]*grid-template-columns:auto minmax\(220px,1fr\) auto auto auto/);
+  assert.match(styles, /\.status-inline\{[^}]*grid-column:3;grid-row:1/);
   assert.match(markup, /<div id="save-status"/);
 });
 
-test('bottom status message stays compact on the right without taking width from the selector', () => {
-  assert.match(styles, /\.status-inline\{[^}]*justify-self:end;width:fit-content;max-width:min\(440px,85%\)/);
+test('bottom status message occupies the right column without shrinking the selector', () => {
+  assert.match(styles, /\.status-inline\{[^}]*justify-self:end;width:100%;max-width:min\(440px,100%\)/);
   assert.match(source, /new ResizeObserver\(update\)\.observe\(dock\)/);
 });
 

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import AnimeItem, Subscription, Target
-from ..rendering.templates import DEFAULT_MESSAGE_TEMPLATES
+from ..rendering.templates import DEFAULT_MESSAGE_TEMPLATES, LEGACY_DEFAULT_MESSAGE_TEMPLATES
 
 
 DEFAULT_PREFERENCES = {
@@ -47,6 +47,10 @@ class JsonStore:
         if not isinstance(loaded, dict):
             raise ValueError("anime_state.json must contain an object; existing file was not modified")
         self.state.update(loaded)
+        templates = self.state.get("preferences", {}).get("message_templates", {})
+        for key, previous in LEGACY_DEFAULT_MESSAGE_TEMPLATES.items():
+            if templates.get(key) == previous:
+                templates[key] = DEFAULT_MESSAGE_TEMPLATES[key]
         return self.state
 
     def save(self, state: dict[str, Any] | None = None) -> None:

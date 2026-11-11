@@ -1,0 +1,4 @@
+{
+  "help_chinese": "主要命令：/anime push（今日播放表）、/anime week（本周播放表）、/anime ova（已选剧场版/OVA上映表）、/anime sub（开启自动推送）。\n后缀也支持中文：推送、本周、剧场版、订阅。\n/anime绑定 - 绑定当前群/会话为 WebUI 推送目标\n/anime解绑 - 解绑当前目标\n/anime列表 - 查看当前目标订阅\n/anime刷新 - 管理员刷新当季动画\n在 AstrBot 插件详情页打开“动画订阅”进行筛选和勾选。",
+  "refresh_result": "动画表刷新完成：{count} 部作品。{failed_sources}"
+}

@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from ..core.time_utils import BJ, JST
-from .card_canvas import CardCanvas, text_height
+from .card_canvas import CardCanvas, header_layout, text_height
 
 
 WEEKDAYS = "一二三四五六日"
@@ -39,12 +39,29 @@ def render_swimlane(title, rows, output, timezone, *, theme="dark", covers=None,
         last = max(max(grouped), monday + timedelta(days=6))
         grouped = {monday + timedelta(days=i): grouped.get(monday + timedelta(days=i), []) for i in range((last - monday).days + 1)}
 
-    width, margin, gap, label_width, columns = 2400, 36, 14, 150, 5
+    margin, gap, label_width = 36, 14, 150
+    columns = max(1, min(5, max((len(entries) for entries in grouped.values()), default=0)))
+    # Remove unused column slots while keeping readable card and font sizes.
+    width = max(720, 2400 - (5 - columns) * (418 + gap))
     content_x = margin + label_width + gap
     card_width = (width - margin * 2 - label_width - gap * columns - 16) // columns
     name_width = card_width - 118
+    timezone_label = "北京时间" if timezone == "Asia/Shanghai" else "日本时间"
+    caption = timezone_label
+    if grouped:
+        caption = min(grouped).strftime("%Y.%m.%d")
+        if min(grouped) != max(grouped):
+            caption += " — " + max(grouped).strftime("%m.%d")
+        caption += " · " + timezone_label
+    counts = {kind: len({row.item.key for row in rows if row.item.item_type == kind}) for kind in ("tv", "web", "movie", "ova")}
+    type_names = {"tv": "TV", "web": "WEB", "movie": "剧场版", "ova": "OVA"}
+    type_caption = " / ".join(f"{type_names[kind]} {count}" for kind, count in counts.items() if count)
+    if type_caption:
+        caption += " · " + type_caption
     plan = []
-    y = 204
+    _, divider_y = header_layout(title, caption, width)
+    content_top = divider_y + 26
+    y = content_top
     for day, entries in grouped.items():
         grid = []
         grid_y = y + 16
@@ -60,16 +77,6 @@ def render_swimlane(title, rows, output, timezone, *, theme="dark", covers=None,
         y += 110
 
     canvas = CardCanvas(width, y + 100, theme)
-    timezone_label = "北京时间" if timezone == "Asia/Shanghai" else "日本时间"
-    caption = timezone_label
-    if grouped:
-        caption = min(grouped).strftime("%Y.%m.%d")
-        if min(grouped) != max(grouped):
-            caption += " — " + max(grouped).strftime("%m.%d")
-        caption += " · " + timezone_label
-    counts = {kind: len({row.item.key for row in rows if row.item.item_type == kind}) for kind in ("tv", "web", "movie", "ova")}
-    type_names = {"tv": "TV", "web": "WEB", "movie": "剧场版", "ova": "OVA"}
-    caption += " · " + " / ".join(f"{type_names[kind]} {count}" for kind, count in counts.items() if count)
     canvas.header(title, caption, len({row.item.key for row in rows}))
     today = datetime.now(zone).date()
     for day, entries, top, height, grid in plan:
@@ -94,6 +101,6 @@ def render_swimlane(title, rows, output, timezone, *, theme="dark", covers=None,
         if not entries:
             canvas.text(content_x + 20, top + 60, "暂无订阅排期", 21, "muted")
     if not plan:
-        canvas.text(margin + 20, 234, "这段时间没有已知订阅排期。", 26, "muted")
+        canvas.text(margin + 20, content_top + 30, "这段时间没有已知订阅排期。", 26, "muted")
     canvas.footer(y + 12)
     return canvas.save(output)

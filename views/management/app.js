@@ -231,7 +231,7 @@ function sourceFailureNotice() {
     });
   if (failures.length) return `部分来源未完成：${failures.join("、")}，已保留可用结果`;
   const empty = sourceEntries.filter(([, result]) => result.status === "empty").map(([name]) => `${name}暂无数据`);
-  return empty.length ? `已获取番表；${empty.join("、")}` : "";
+  return empty.length ? `已获取番组；${empty.join("、")}` : "";
 }
 
 function visibleCatalogItems() {
@@ -551,12 +551,12 @@ async function sendCardTest(kind) {
 async function sendTableTest(kind) {
   const targetId = $("#test-target").value;
   if (!targetId) { $("#test-push-status").textContent = "请先选择推送目标。"; return; }
-  $("#test-push-status").textContent = "正在生成并发送订阅番表图片…";
+  $("#test-push-status").textContent = "正在生成并发送订阅番组图片…";
   try {
     await bridge.apiPost("test-push", {target_id: targetId, kind: kind === "daily" ? "daily_table" : "weekly_table"});
-    $("#test-push-status").textContent = `${kind === "daily" ? "每日" : "每周"}番表图片已发送。`;
+    $("#test-push-status").textContent = `${kind === "daily" ? "每日" : "每周"}番组图片已发送。`;
   } catch (error) {
-    $("#test-push-status").textContent = `番表图片发送失败：${error.message}`;
+    $("#test-push-status").textContent = `番组图片发送失败：${error.message}`;
   }
 }
 
@@ -682,7 +682,7 @@ async function savePreferences() {
     const result = await bridge.apiPost("preferences", values);
     state.preferences = result.preferences;
     applyPreferences();
-    setStatus("设置已保存。获取番表后应用新的排期来源。", "notice-success");
+    setStatus("设置已保存。获取番组后应用新的排期来源。", "notice-success");
   } catch (error) {
     setStatus(`设置保存失败：${error.message}`, "notice-error");
   }
@@ -722,14 +722,14 @@ async function refreshAll() {
   button.textContent = "正在获取…";
   try {
     await loadItems(true, true);
-    setStatus(sourceFailureNotice() || "已获取最新番剧表", "notice-success");
+    setStatus(sourceFailureNotice() || "已获取最新番组", "notice-success");
   }
   catch (error) {
     setStatus(`获取失败：${naturalError(error)}`, "notice-error");
   }
   finally {
     button.disabled = false;
-    button.textContent = "获取番表";
+    button.textContent = "获取番组";
   }
 }
 

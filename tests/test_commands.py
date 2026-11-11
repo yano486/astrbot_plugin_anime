@@ -188,8 +188,31 @@ class CommandAliasTests(unittest.TestCase):
 
             self.assertTrue(result)
             self.assertEqual(sent[0][0], "group:1")
-            self.assertEqual(generated[0][0:2], ("每日订阅番表", "Asia/Shanghai"))
+            self.assertEqual(generated[0][0:2], ("每日订阅番组", "Asia/Shanghai"))
             self.assertFalse(generated[0][2].exists())
+
+    def test_weekly_command_title_still_uses_seven_day_renderer_after_rename(self):
+        class Store:
+            @staticmethod
+            def get_preferences():
+                return {"display_timezone": "Asia/Shanghai"}
+
+        class Event:
+            @staticmethod
+            def image_result(path):
+                return path
+
+        async def run(directory):
+            plugin = AnimePlugin.__new__(AnimePlugin)
+            plugin.data_dir = Path(directory)
+            plugin.store = Store()
+            with patch("astrbot_plugin_anime.main.render_weekly_image") as weekly, patch("astrbot_plugin_anime.main.render_airings_image") as daily:
+                await plugin._send_airings_image(Event(), "本周订阅番组", [])
+                weekly.assert_called_once()
+                daily.assert_not_called()
+
+        with tempfile.TemporaryDirectory() as directory:
+            asyncio.run(run(directory))
 
 
 if __name__ == "__main__":

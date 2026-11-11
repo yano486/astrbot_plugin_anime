@@ -14,7 +14,7 @@ AstrBot plugin for seasonal Japanese anime schedules, WebUI subscriptions, and r
 
 ## WebUI
 
-Open the plugin WebUI to manage targets, schedules, timezones, source preferences, and message templates. Select text or card reminders in Settings. Single-anime cards support three layouts (Info, Poster, Compact). Daily/weekly tables use weekday swimlanes with wrapping cover cards. All images use an independent dark/light palette and do not display schedule-source names.
+Open the plugin WebUI to manage targets, schedules, timezones, source preferences, and message templates. Select text or card reminders in Settings. Single-anime cards support three layouts (Info, Poster, Compact). Daily/weekly tables use weekday swimlanes with wrapping cover cards. Table width adapts to the busiest day, from one to five columns, so small subscriptions produce narrower images. All images use an independent dark/light palette and do not display schedule-source names.
 
 Image pushes and card-test choices use only the selected conversation's saved, enabled subscriptions. Inactive targets receive a subscription notice; active targets without selected anime receive an empty-selection notice. The full catalog remains available for choosing new subscriptions. Both notices can be edited in Message Text.
 

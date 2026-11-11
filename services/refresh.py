@@ -28,7 +28,7 @@ class RefreshService:
         return await self._singleflight(("season", season), lambda: self._refresh(season))
 
     async def _refresh(self, season: str) -> dict[str, Any]:
-        logger.info("[anime] 开始获取季度番表：%s", season)
+        logger.info("[anime] 开始获取季度番组：%s", season)
         preferences = self.store.get_preferences() if hasattr(self.store, "get_preferences") else {}
         self.bangumi.exclude_r18 = bool(preferences.get("exclude_r18", False))
         results: list[SourceResult] = await asyncio.gather(*(adapter.fetch(season) for adapter in self.adapters))
@@ -87,7 +87,7 @@ class RefreshService:
             self.store.state["updated_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         self.store.state["source_status"] = status
         self.store.save()
-        logger.info("[anime] 季度番表获取完成：%s，合并 %s 部", season, len(items))
+        logger.info("[anime] 季度番组获取完成：%s，合并 %s 部", season, len(items))
         return {"items": items, "sources": status, "updated_at": self.store.state.get("updated_at", "")}
 
     async def refresh_movies(self, today: date):

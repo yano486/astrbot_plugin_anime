@@ -501,7 +501,7 @@ test('calendar month navigation restores focus after rerendering month buttons',
 });
 
 test('fetch button keeps readable foreground colors in both themes', () => {
-  assert.match(markup, /id="refresh"[^>]*>获取番表</);
+  assert.match(markup, /id="refresh"[^>]*>获取番组</);
   assert.match(styles, /\.button-dark,\.button-accent\{[^}]*color:#fff/s);
   assert.match(styles, /html\[data-theme="dark"\]\{[^}]*--blueprint-accent/);
 });
@@ -516,12 +516,12 @@ test('weekday buttons receive more toolbar width than adaptation and year filter
 test('empty future sources produce a compact fetch result instead of an error toast', () => {
   const app = setup(async () => ({}));
   const message = app.run('state.sources = {bangumi:{status:"ok",count:100}, bgmlist:{status:"empty"}, yuc:{status:"empty"}}; sourceFailureNotice()');
-  assert.equal(message, '已获取番表；bgmlist暂无数据、yuc暂无数据');
+  assert.equal(message, '已获取番组；bgmlist暂无数据、yuc暂无数据');
 });
 
 test('catalog fetch action is labelled as getting the schedule', () => {
-  assert.match(markup, /id="refresh"[^>]*>获取番表</);
-  assert.doesNotMatch(markup, /id="refresh"[^>]*>刷新番表</);
+  assert.match(markup, /id="refresh"[^>]*>获取番组</);
+  assert.doesNotMatch(markup, /id="refresh"[^>]*>刷新番组</);
 });
 
 test('catalog navigation and headings use subscription wording and settings owns push tests', () => {

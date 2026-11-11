@@ -51,12 +51,18 @@ def text_height(text: str, width: int, size: int, bold: bool = False) -> int:
     return len(lines(text, width, size, bold)) * (size + 9)
 
 
+def header_layout(title: str, caption: str, width: int) -> tuple[int, int]:
+    caption_y = max(126, 66 + text_height(title, width - 240, 36, True) + 15)
+    divider_y = max(178, caption_y + text_height(caption, width - 240, 18) + 25)
+    return caption_y, divider_y
+
+
 class CardCanvas:
     def __init__(self, width: int, height: int, theme: str):
         if theme not in PALETTES:
             raise ValueError("card_theme must be dark or light")
         if height > 30000:
-            raise ValueError("番表内容过多，请缩小推送范围后再生成图片")
+            raise ValueError("番组内容过多，请缩小推送范围后再生成图片")
         self.colors = PALETTES[theme]
         self.width = width
         self.image = Image.new("RGB", (width, max(height, 300)), self.colors["bg"])
@@ -89,12 +95,13 @@ class CardCanvas:
         self.text(x + 10, y + height // 2 - 12, label, 14, "muted", width=width - 20)
 
     def header(self, title: str, caption: str, count: int):
+        caption_y, divider_y = header_layout(title, caption, self.width)
         self.text(36, 26, "A  动画订阅", 18, "accent", True)
         self.text(36, 66, title, 36, bold=True, width=self.width - 240)
-        self.text(36, 126, caption, 18, "muted", width=self.width - 240)
+        self.text(36, caption_y, caption, 18, "muted", width=self.width - 240)
         self.text(self.width - 140, 76, str(count), 38, "accent", True, width=105)
         self.text(self.width - 140, 130, "部动画", 16, "muted", width=105)
-        self.draw.line((36, 178, self.width - 36, 178), fill=self.colors["line"])
+        self.draw.line((36, divider_y, self.width - 36, divider_y), fill=self.colors["line"])
 
     def footer(self, y: int):
         self.draw.line((36, y, self.width - 36, y), fill=self.colors["line"])

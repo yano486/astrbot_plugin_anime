@@ -28,7 +28,7 @@
     "type": "string",
     "default": "",
     "description": "Bangumi API Token",
-    "hint": "可选。到 https://next.bgm.tv/demo/access-token 获取 Token；将 Token 本体粘贴于此。插件会自动以 Bearer Token 方式请求 API。留空仍可使用公开 API，填写后可降低限流影响。修改后获取番表生效。",
+    "hint": "可选。到 https://next.bgm.tv/demo/access-token 获取 Token；将 Token 本体粘贴于此。插件会自动以 Bearer Token 方式请求 API。留空仍可使用公开 API，填写后可降低限流影响。修改后获取番组生效。",
     "secret": true
   },
   "bangumi_proxy": {

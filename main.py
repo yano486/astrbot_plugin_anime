@@ -29,7 +29,7 @@ from .core.time_utils import BJ, JST
 plugin_logger = get_plugin_logger()
 
 
-PLUGIN_VERSION = "0.3.18"
+PLUGIN_VERSION = "0.3.19"
 
 
 @register("astrbot_plugin_anime", "486", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)
@@ -250,7 +250,7 @@ class AnimePlugin(Star):
 
         self._cleanup_generated_tables()
         path = self.data_dir / "push_tables" / f"{uuid4().hex}.png"
-        title = "每日订阅番表" if kind == "daily" else "本周订阅番表"
+        title = "每日订阅番组" if kind == "daily" else "本周订阅番组"
         try:
             await asyncio.to_thread(render_subscription_table_image, title, rows, path, display_timezone, kind=kind, **await self._image_options([row.item for row in rows]))
             chain = MessageChain().file_image(str(path))
@@ -300,7 +300,7 @@ class AnimePlugin(Star):
         path = self.data_dir / "push_tables" / f"{uuid4().hex}.png"
         try:
             preferences = self.store.get_preferences()
-            renderer = render_weekly_image if title == "本周动画播放表" else render_airings_image
+            renderer = render_weekly_image if title == "本周订阅番组" else render_airings_image
             await asyncio.to_thread(renderer, title, rows, path, preferences["display_timezone"], **await self._image_options([row.item for row in rows]))
         except Exception as exc:
             logger.error(f"[anime] 图表生成失败: {exc}")
@@ -402,7 +402,7 @@ class AnimePlugin(Star):
             adjusted = []
             for row in rows:
                 adjusted.append(Airing(selected_by_key[row.item.key], None, row.at))
-            yield await self._send_airings_image(event, "已选剧场版与OVA上映表", adjusted)
+            yield await self._send_airings_image(event, "已选剧场版与OVA番组", adjusted)
             return
 
         selected_keys = {sub.anime_key for sub in self.store.get_subscriptions(target_id) if sub.enabled}
@@ -414,12 +414,12 @@ class AnimePlugin(Star):
         if action_name == "push":
             start = datetime.combine(now.date(), time.min, display_zone)
             end = start + timedelta(days=1)
-            title = "今日动画播放表"
+            title = "今日订阅番组"
         else:
             monday = now.date() - timedelta(days=now.isoweekday() - 1)
             start = datetime.combine(monday, time.min, display_zone)
             end = start + timedelta(days=7)
-            title = "本周动画播放表"
+            title = "本周订阅番组"
         rows = airings_between(selected_items, start, end)
         yield await self._send_airings_image(event, title, rows)
 

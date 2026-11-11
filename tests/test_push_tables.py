@@ -53,10 +53,10 @@ class PushTableTests(unittest.TestCase):
 
         rows = airings_between([self.item], datetime(2026, 10, 5, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")), datetime(2026, 10, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")))
         with tempfile.TemporaryDirectory() as directory:
-            path = render_weekly_image("本周动画播放表", rows, Path(directory) / "week.png")
+            path = render_weekly_image("本周订阅番组", rows, Path(directory) / "week.png")
             with Image.open(path) as image:
                 self.assertEqual(image.format, "PNG")
-                self.assertEqual(image.width, 2400)
+                self.assertEqual(image.width, 720)
 
     def test_combined_table_is_a_single_png(self) -> None:
         rows = airings_between([self.item], datetime(2026, 10, 6, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")), datetime(2026, 10, 7, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")))
@@ -64,7 +64,7 @@ class PushTableTests(unittest.TestCase):
             path = render_airings_image("今日动画", rows, Path(directory) / "today.png")
             with Image.open(path) as image:
                 self.assertEqual(image.format, "PNG")
-                self.assertEqual(image.width, 2400)
+                self.assertEqual(image.width, 720)
                 self.assertGreater(image.height, 200)
 
     def test_notification_card_renders_for_reminder_and_update_modes(self) -> None:
@@ -82,7 +82,7 @@ class PushTableTests(unittest.TestCase):
             datetime(2026, 10, 12, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")),
         )
         with tempfile.TemporaryDirectory() as directory:
-            path = render_subscription_table_image("每日订阅番表", rows, Path(directory) / "table.png")
+            path = render_subscription_table_image("每日订阅番组", rows, Path(directory) / "table.png")
             with Image.open(path) as image:
                 self.assertEqual(image.getpixel((0, 0)), (16, 27, 33))
 
@@ -102,7 +102,7 @@ class PushTableTests(unittest.TestCase):
                     for renderer, args in (
                         (render_airings_image, ("今日动画", rows)),
                         (render_weekly_image, ("本周动画", rows)),
-                        (render_subscription_table_image, ("每日订阅番表", rows)),
+                        (render_subscription_table_image, ("每日订阅番组", rows)),
                         (render_notification_card, (self.item, "reminder")),
                         (render_notification_card, (self.item, "update")),
                     ):
@@ -117,7 +117,7 @@ class PushTableTests(unittest.TestCase):
                             self.assertFalse(any(source.lower() in "\n".join(text_drawn).lower() for source in self.item.sources))
                             self.assertIn("测试动画", "\n".join(text_drawn))
                             with Image.open(path) as image:
-                                self.assertEqual(image.width, 1200 if renderer == render_notification_card else 2400)
+                                self.assertEqual(image.width, 1200 if renderer == render_notification_card else 720)
                                 self.assertIn((217, 78, 34), [rgb for _, rgb in image.getcolors(image.width * image.height)])
 
     def test_invalid_layout_does_not_silently_render_another_style(self) -> None:
@@ -136,7 +136,7 @@ class PushTableTests(unittest.TestCase):
             return real_text(draw, xy, text, *args, **kwargs)
 
         with tempfile.TemporaryDirectory() as directory, patch.object(ImageDraw.ImageDraw, "text", draw_text):
-            render_weekly_image("本周番表", rows, Path(directory) / "empty-days.png", card_style="compact")
+            render_weekly_image("本周番组", rows, Path(directory) / "empty-days.png", card_style="compact")
             weekday_y = [xy[1] for xy, text in drawn if text in ["周" + day for day in "一二三四五六日"]]
         self.assertEqual(len(weekday_y), 7)
         self.assertTrue(all(right - left >= 130 for left, right in zip(weekday_y, weekday_y[1:])))
@@ -153,7 +153,7 @@ class PushTableTests(unittest.TestCase):
 
         row = Airing(self.item, self.item.schedules[0], datetime(2026, 11, 11, 23, 30, tzinfo=ZoneInfo("Asia/Shanghai")))
         with tempfile.TemporaryDirectory() as directory, patch.object(ImageDraw.ImageDraw, "text", draw_text):
-            render_airings_image("今日番表", [row], Path(directory) / "midnight.png")
+            render_airings_image("今日番组", [row], Path(directory) / "midnight.png")
             self.assertIn("日本 次日 00:30", drawn)
             drawn.clear()
             movie = AnimeItem(key="ova", title="OVA", item_type="ova", release_date="2027-01-15")
@@ -175,7 +175,7 @@ class PushTableTests(unittest.TestCase):
             return real_text(draw, xy, text, *args, **kwargs)
 
         with tempfile.TemporaryDirectory() as directory, patch.object(ImageDraw.ImageDraw, "text", draw_text):
-            path = render_weekly_image("本周订阅番表", rows, Path(directory) / "wrap.png")
+            path = render_weekly_image("本周订阅番组", rows, Path(directory) / "wrap.png")
             with Image.open(path) as image:
                 self.assertEqual(image.width, 2400)
         titles = [(xy, text) for xy, text in drawn if text.startswith("订阅作品")]
@@ -185,6 +185,64 @@ class PushTableTests(unittest.TestCase):
             self.assertLess(x, 2400)
             counts[y] = counts.get(y, 0) + 1
         self.assertEqual(sorted(counts.values()), [1, 5, 5])
+
+    def test_table_width_follows_busiest_day_and_stops_growing_at_five_columns(self):
+        from dataclasses import replace
+        from datetime import timedelta
+        from astrbot_plugin_anime.rendering.push_tables import Airing, render_weekly_image
+
+        monday = datetime(2026, 11, 9, 22, tzinfo=ZoneInfo("Asia/Shanghai"))
+        distributions = {"empty": [], "one": [1], "spread": [1, 1, 1, 1, 1], "two": [2], "three": [3], "four": [4], "five": [5], "wrapped": [11]}
+        widths = {}
+        with tempfile.TemporaryDirectory() as directory:
+            for name, counts in distributions.items():
+                rows = [
+                    Airing(replace(self.item, key=f"{day}:{index}"), self.item.schedules[0], monday + timedelta(days=day, minutes=index))
+                    for day, count in enumerate(counts) for index in range(count)
+                ]
+                path = render_weekly_image("本周订阅番组", rows, Path(directory) / f"{name}.png")
+                with Image.open(path) as image:
+                    widths[name] = image.width
+            self.assertLess(widths["one"], 1000)
+            self.assertEqual(widths["empty"], widths["one"])
+            self.assertEqual(widths["spread"], widths["one"])
+            self.assertTrue(all(widths[left] < widths[right] for left, right in zip(("one", "two", "three", "four"), ("two", "three", "four", "five"))))
+            self.assertEqual(widths["five"], widths["wrapped"])
+            self.assertLessEqual(widths["five"], 2400)
+
+    def test_narrow_table_keeps_wrapped_header_and_long_titles_inside_the_image(self):
+        from dataclasses import replace
+        from astrbot_plugin_anime.rendering.card_canvas import CardCanvas
+        from astrbot_plugin_anime.rendering.push_tables import Airing, render_weekly_image
+
+        title = "本周订阅番组与跨月动画开播提醒"
+        item = replace(self.item, title_cn="被逐出队伍的我踏上旅途后在遥远小镇找到了想守护的日常与伙伴" * 3)
+        rows = [Airing(item, item.schedules[0], datetime(2026, 11, 9, 22, tzinfo=ZoneInfo("Asia/Shanghai")))]
+        drawn, bands = [], []
+        real_text, real_panel = CardCanvas.text, CardCanvas.panel
+
+        def text(canvas, x, y, value, *args, **kwargs):
+            end = real_text(canvas, x, y, value, *args, **kwargs)
+            drawn.append((value, y, end))
+            self.assertLessEqual(end, canvas.image.height)
+            return end
+
+        def panel(canvas, box, *args, **kwargs):
+            if box[0] == 36:
+                bands.append(box)
+            self.assertLessEqual(box[2], canvas.width)
+            return real_panel(canvas, box, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(CardCanvas, "text", text), patch.object(CardCanvas, "panel", panel):
+            path = render_weekly_image(title, rows, Path(directory) / "narrow.png")
+            with Image.open(path) as image:
+                self.assertLess(image.width, 1000)
+        self.assertEqual(len(bands), 7)
+        title_bounds = next((top, end) for value, top, end in drawn if value == title)
+        caption_bounds = next((top, end) for value, top, end in drawn if value.startswith("2026.11.09"))
+        self.assertLess(title_bounds[1], caption_bounds[0])
+        self.assertLess(caption_bounds[1], bands[0][1])
+        self.assertEqual(sum(value == item.title_cn for value, _, _ in drawn), 1)
 
     def test_generated_table_cleanup_removes_only_expired_plugin_pngs(self) -> None:
         import os

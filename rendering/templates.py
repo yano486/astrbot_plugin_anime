@@ -50,7 +50,7 @@ TEMPLATE_DEFINITIONS: dict[str, dict[str, Any]] = {
     "no_subscription": {"label": "\u6ca1\u6709\u8ba2\u9605", "description": "\u6ca1\u6709\u627e\u5230\u8ba2\u9605\u65f6\u7684\u56de\u590d", "variables": ()},
     "list_empty": {"label": "\u8ba2\u9605\u5217\u8868\u4e3a\u7a7a", "description": "\u8ba2\u9605\u5217\u8868\u6ca1\u6709\u542f\u7528\u4f5c\u54c1\u65f6\u7684\u56de\u590d", "variables": ()},
     "list_result": {"label": "\u8ba2\u9605\u5217\u8868", "description": "\u5c55\u793a\u5f53\u524d\u4f1a\u8bdd\u8ba2\u9605\u65f6\u7684\u56de\u590d", "variables": ("subscriptions",)},
-    "refresh_result": {"label": "\u5237\u65b0\u7ed3\u679c", "description": "\u7ba1\u7406\u5458\u5237\u65b0\u756a\u8868\u540e\u7684\u56de\u590d", "variables": ("count", "failed_sources")},
+    "refresh_result": {"label": "\u5237\u65b0\u7ed3\u679c", "description": "\u7ba1\u7406\u5458\u5237\u65b0\u756a\u7ec4\u540e\u7684\u56de\u590d", "variables": ("count", "failed_sources")},
     "reminder_lead": {"label": "\u63d0\u524d\u63d0\u9192", "description": "TV/WEB \u52a8\u753b\u63d0\u524d\u63d0\u9192\u6587\u672c", "variables": tuple(sorted(_COMMON))},
     "reminder_on_time": {"label": "\u6309\u65f6\u64ad\u51fa", "description": "TV/WEB \u52a8\u753b\u6309\u65f6\u64ad\u51fa\u6587\u672c", "variables": tuple(sorted(_COMMON))},
     "movie_reminder": {"label": "\u5267\u573a\u7248/OVA\u63d0\u9192", "description": "\u5267\u573a\u7248\u548c OVA \u4e0a\u6620\u65e5\u671f\u63d0\u9192\u6587\u672c", "variables": tuple(sorted(_COMMON))},
@@ -62,7 +62,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "push_not_subscribed": "订阅群没有订阅，请先使用 /anime 订阅 开启。",
     "push_no_anime": "未添加动画推送，请在 WebUI 勾选动画并保存订阅。",
     "help_english": "Commands: /anime help, /anime push (today), /anime week (this week), /anime ova (selected movies/OVA), /anime sub (enable reminders).\nChinese suffixes are also supported: \u63a8\u9001\u3001\u672c\u5468\u3001\u5267\u573a\u7248\u3001\u8ba2\u9605\u3002\n/anime\u7ed1\u5b9a binds the current conversation, /anime\u89e3\u7ed1 removes it, /anime\u5217\u8868 shows subscriptions, and /anime\u5237\u65b0 refreshes the current season.",
-    "help_chinese": "\u4e3b\u8981\u547d\u4ee4：/anime push（\u4eca\u65e5\u64ad\u653e\u8868）、/anime week（\u672c\u5468\u64ad\u653e\u8868）、/anime ova（\u5df2\u9009\u5267\u573a\u7248/OVA\u4e0a\u6620\u8868）、/anime sub（\u5f00\u542f\u81ea\u52a8\u63a8\u9001）。\n\u540e\u7f00\u4e5f\u652f\u6301\u4e2d\u6587：\u63a8\u9001、\u672c\u5468、\u5267\u573a\u7248、\u8ba2\u9605。\n/anime\u7ed1\u5b9a - \u7ed1\u5b9a\u5f53\u524d\u7fa4/\u4f1a\u8bdd\u4e3a WebUI \u63a8\u9001\u76ee\u6807\n/anime\u89e3\u7ed1 - \u89e3\u7ed1\u5f53\u524d\u76ee\u6807\n/anime\u5217\u8868 - \u67e5\u770b\u5f53\u524d\u76ee\u6807\u8ba2\u9605\n/anime\u5237\u65b0 - \u7ba1\u7406\u5458\u5237\u65b0\u5f53\u5b63\u52a8\u753b\n\u5728 AstrBot \u63d2\u4ef6\u8be6\u60c5\u9875\u6253\u5f00“\u52a8\u753b\u8ba2\u9605”\u8fdb\u884c\u7b5b\u9009\u548c\u52fe\u9009。",
+    "help_chinese": "\u4e3b\u8981\u547d\u4ee4：/anime push（\u4eca\u65e5\u756a\u7ec4）、/anime week（\u672c\u5468\u756a\u7ec4）、/anime ova（\u5df2\u9009\u5267\u573a\u7248/OVA\u756a\u7ec4）、/anime sub（\u5f00\u542f\u81ea\u52a8\u63a8\u9001）。\n\u540e\u7f00\u4e5f\u652f\u6301\u4e2d\u6587：\u63a8\u9001、\u672c\u5468、\u5267\u573a\u7248、\u8ba2\u9605。\n/anime\u7ed1\u5b9a - \u7ed1\u5b9a\u5f53\u524d\u7fa4/\u4f1a\u8bdd\u4e3a WebUI \u63a8\u9001\u76ee\u6807\n/anime\u89e3\u7ed1 - \u89e3\u7ed1\u5f53\u524d\u76ee\u6807\n/anime\u5217\u8868 - \u67e5\u770b\u5f53\u524d\u76ee\u6807\u8ba2\u9605\n/anime\u5237\u65b0 - \u7ba1\u7406\u5458\u5237\u65b0\u5f53\u5b63\u52a8\u753b\n\u5728 AstrBot \u63d2\u4ef6\u8be6\u60c5\u9875\u6253\u5f00“\u52a8\u753b\u8ba2\u9605”\u8fdb\u884c\u7b5b\u9009\u548c\u52fe\u9009。",
     "command_usage": "\u547d\u4ee4：/anime help、/anime push、/anime week、/anime ova、/anime sub（\u4e2d\u6587\u540e\u7f00\u4e5f\u652f\u6301）",
     "bind_success": "\u5df2\u7ed1\u5b9a\u5f53\u524d\u4f1a\u8bdd。\u73b0\u5728\u53ef\u4ee5\u5728 WebUI \u4e2d\u9009\u62e9\u5b83\u4f5c\u4e3a\u52a8\u753b\u63d0\u9192\u76ee\u6807。",
     "bind_failure": "\u65e0\u6cd5\u8bc6\u522b\u5f53\u524d\u4f1a\u8bdd\u76ee\u6807，\u8bf7\u68c0\u67e5 AstrBot \u7248\u672c。",
@@ -75,12 +75,21 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "no_subscription": "\u5f53\u524d\u4f1a\u8bdd\u8fd8\u6ca1\u6709\u52a8\u753b\u8ba2\u9605。\u8bf7\u5148 /anime\u7ed1\u5b9a，\u518d\u5230 WebUI \u52fe\u9009\u4f5c\u54c1。",
     "list_empty": "\u6682\u65e0\u542f\u7528\u7684\u52a8\u753b\u8ba2\u9605。",
     "list_result": "\u5f53\u524d\u4f1a\u8bdd\u8ba2\u9605：\n{subscriptions}",
-    "refresh_result": "\u52a8\u753b\u8868\u5237\u65b0\u5b8c\u6210：{count} \u90e8\u4f5c\u54c1。{failed_sources}",
+    "refresh_result": "\u756a\u7ec4\u5237\u65b0\u5b8c\u6210：{count} \u90e8\u4f5c\u54c1。{failed_sources}",
     "reminder_lead": "📺 \u52a8\u753b{reminder_label}\n{title}\n{beijing_time}\n{japan_time}\n\u6570\u636e\u6765\u6e90：{source}{schedule_note}",
     "reminder_on_time": "📺 \u52a8\u753b{reminder_label}\n{title}\n{beijing_time}\n{japan_time}\n\u6570\u636e\u6765\u6e90：{source}{schedule_note}",
     "movie_reminder": "🎬 {item_type} {reminder_label}\n{title}\n\u4e0a\u6620\u65e5\u671f：{release_timezone} {release_date}{schedule_note}\n\u6570\u636e\u6765\u6e90：{source}",
     "test_message": "🔔 \u52a8\u753b\u8ba2\u9605\u6d4b\u8bd5\u6d88\u606f：\u6b64\u4f1a\u8bdd\u53ef\u4ee5\u63a5\u6536\u63d2\u4ef6\u63a8\u9001。",
     "image_error": "\u56fe\u7247\u8868\u751f\u6210\u5931\u8d25：{error}",
+}
+
+# Older stores persisted the full defaults; match the whole template to preserve edits.
+LEGACY_DEFAULT_MESSAGE_TEMPLATES = {
+    "help_chinese": DEFAULT_MESSAGE_TEMPLATES["help_chinese"]
+        .replace("\u4eca\u65e5\u756a\u7ec4", "\u4eca\u65e5\u64ad\u653e\u8868")
+        .replace("\u672c\u5468\u756a\u7ec4", "\u672c\u5468\u64ad\u653e\u8868")
+        .replace("OVA\u756a\u7ec4", "OVA\u4e0a\u6620\u8868"),
+    "refresh_result": "\u52a8\u753b\u8868\u5237\u65b0\u5b8c\u6210：{count} \u90e8\u4f5c\u54c1。{failed_sources}",
 }
 
 _FORMATTER = Formatter()

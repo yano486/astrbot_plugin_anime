@@ -90,10 +90,10 @@ class CardCanvas:
 
     def header(self, title: str, caption: str, count: int):
         self.text(36, 26, "A  动画订阅", 18, "accent", True)
-        self.text(36, 66, title, 36, bold=True, width=960)
-        self.text(36, 126, caption, 18, "muted", width=960)
-        self.text(1060, 76, str(count), 38, "accent", True, width=105)
-        self.text(1060, 130, "部动画", 16, "muted", width=105)
+        self.text(36, 66, title, 36, bold=True, width=self.width - 240)
+        self.text(36, 126, caption, 18, "muted", width=self.width - 240)
+        self.text(self.width - 140, 76, str(count), 38, "accent", True, width=105)
+        self.text(self.width - 140, 130, "部动画", 16, "muted", width=105)
         self.draw.line((36, 178, self.width - 36, 178), fill=self.colors["line"])
 
     def footer(self, y: int):

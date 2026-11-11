@@ -4,12 +4,98 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from astrbot_plugin_anime.core.models import AnimeItem, Schedule, Target
+from astrbot_plugin_anime.core.models import AnimeItem, Schedule, Subscription, Target
 from astrbot_plugin_anime.core.store import JsonStore
 from astrbot_plugin_anime.web.api import AnimeWebAPI
 
 
 class WebApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_card_tests_cannot_use_another_targets_or_disabled_subscription(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = JsonStore(Path(directory) / "state.json")
+            store.set_items([
+                AnimeItem(key=key, title=key, item_type="tv", schedules=[Schedule(3, 22, 0, "22:00", "fixture")])
+                for key in ("other", "mine", "disabled", "catalog-only")
+            ])
+            for target in ("group:A", "group:B", "group:empty"):
+                store.upsert_target(Target(target, subscribed=True, whitelisted=True))
+            store.set_subscription(Subscription("group:A", "mine"))
+            store.set_subscription(Subscription("group:A", "disabled", enabled=False))
+            store.set_subscription(Subscription("group:B", "other"))
+            sent = []
+
+            class Plugin:
+                async def _deliver_card(self, target, item, mode):
+                    sent.append((target, item.key, mode))
+
+            plugin = Plugin()
+            plugin.store = store
+            api = AnimeWebAPI(plugin)
+            for kind in ("reminder_card", "update_card"):
+                for key in ("other", "disabled", "catalog-only", "missing"):
+                    before = len(sent)
+                    status, body = await api.execute("test-push", "POST", {}, {"target_id": "group:A", "kind": kind, "anime_key": key})
+                    self.assertEqual(status, 400)
+                    self.assertIn("订阅", body["error"])
+                    self.assertEqual(len(sent), before)
+                status, _ = await api.execute("test-push", "POST", {}, {"target_id": "group:A", "kind": kind, "anime_key": "mine"})
+                self.assertEqual(status, 200)
+                self.assertEqual(sent[-1][1], "mine")
+            status, _ = await api.execute("test-push", "POST", {}, {"target_id": "group:A", "kind": "reminder_card"})
+            self.assertEqual(status, 200)
+            self.assertEqual(sent[-1][1], "mine")
+            before = len(sent)
+            status, body = await api.execute("test-push", "POST", {}, {"target_id": "group:empty", "kind": "reminder_card"})
+            self.assertEqual(status, 400)
+            self.assertEqual(len(sent), before)
+            self.assertIn("未添加动画推送", body["error"])
+
+    async def test_image_tests_distinguish_inactive_target_and_no_anime_selection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = JsonStore(Path(directory) / "state.json")
+            store.upsert_target(Target("off", subscribed=False))
+            store.upsert_target(Target("empty", subscribed=True))
+            store.set_subscription(Subscription("off", "a"))
+            plugin = type("Plugin", (), {"store": store})()
+            for target, expected in (("off", "订阅群没有订阅"), ("empty", "未添加动画推送")):
+                for kind in ("reminder_card", "update_card", "daily_table", "weekly_table"):
+                    status, result = await AnimeWebAPI(plugin).execute("test-push", "POST", {}, {"target_id": target, "kind": kind})
+                    self.assertEqual(status, 400)
+                    self.assertIn(expected, result["error"])
+
+    async def test_saving_empty_selection_keeps_subscription_enabled_and_uses_editable_notice(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = JsonStore(Path(directory) / "state.json")
+            store.upsert_target(Target("group:A", subscribed=True, whitelisted=True))
+            store.set_items([AnimeItem("a", "A", item_type="tv")])
+            store.set_subscription(Subscription("group:A", "a"))
+            store.set_preferences({"message_templates": {"push_no_anime": "未添加动画推送：自定义提示"}})
+            plugin = type("Plugin", (), {"store": store})()
+            api = AnimeWebAPI(plugin)
+            status, _ = await api.execute("subscriptions", "POST", {}, {"target_id": "group:A", "subscriptions": []})
+            self.assertEqual(status, 200)
+            self.assertTrue(store.state["targets"]["group:A"]["subscribed"])
+            self.assertEqual(store.get_subscriptions("group:A"), [])
+            status, body = await api.execute("test-push", "POST", {}, {"target_id": "group:A", "kind": "weekly_table"})
+            self.assertEqual(status, 400)
+            self.assertEqual(body["error"], "未添加动画推送：自定义提示")
+
+    async def test_disabled_target_image_tests_use_editable_subscription_notice(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = JsonStore(Path(directory) / "state.json")
+            store.upsert_target(Target("disabled", enabled=False, subscribed=True))
+            store.set_preferences({"message_templates": {"push_not_subscribed": "订阅群没有订阅：自定义提示"}})
+            plugin = type("Plugin", (), {"store": store})()
+            api = AnimeWebAPI(plugin)
+            for kind in ("reminder_card", "update_card", "daily_table", "weekly_table"):
+                status, body = await api.execute("test-push", "POST", {}, {"target_id": "disabled", "kind": kind})
+                self.assertEqual(status, 400)
+                self.assertEqual(body["error"], "订阅群没有订阅：自定义提示")
+            status, _ = await api.execute("test-push", "POST", {}, {"target_id": "disabled", "kind": "message"})
+            self.assertEqual(status, 400)
+            status, _ = await api.execute("test-push", "POST", {}, {"target_id": "missing", "kind": "weekly_table"})
+            self.assertEqual(status, 400)
+
     async def test_saved_card_layout_survives_reload_and_text_only_edits(self):
         with tempfile.TemporaryDirectory() as directory:
             state_path = Path(directory) / "state.json"
@@ -288,6 +374,13 @@ class WebApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
             status, body = await api.execute("test-push", "POST", {}, {"target_id": "group:1"})
             self.assertTrue(body["sent"])
             self.assertEqual(plugin.messages[0][0], "group:1")
+
+            status, _ = await api.execute("test-push", "POST", {}, {
+                "target_id": "group:1", "kind": "update_card", "anime_key": "tv:1",
+            })
+            self.assertEqual(status, 400)
+            self.assertEqual(plugin.cards, [])
+            store.set_subscription(Subscription("group:1", "tv:1"))
 
             for kind, expected_mode in (("reminder_card", "reminder"), ("update_card", "update")):
                 status, body = await api.execute("test-push", "POST", {}, {

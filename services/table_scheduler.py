@@ -121,7 +121,7 @@ class SubscriptionTableScheduler:
         get_all_items = getattr(self.store, "get_all_items", None) or self.store.get_items
         items = [
             item for item in get_all_items()
-            if item.key in keys and item.item_type in ("tv", "web")
+            if item.key in keys
         ]
         return airings_between(items, start, end)
 

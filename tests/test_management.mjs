@@ -90,6 +90,60 @@ test('reading subscriptions limits the visible catalog to checked items and can 
   assert.equal(app.run('visibleCatalogItems().map(item => item.key).join(",")'), 'A,B,C');
 });
 
+test('card test choices show saved enabled subscriptions from the selected target across seasons', async () => {
+  const app = setup(async (endpoint, params) => endpoint === 'subscriptions'
+    ? {subscriptions: params.target_id === 'group:A' ? [{anime_key:'mine',enabled:true},{anime_key:'disabled',enabled:false}] : []}
+    : {items:[{key:'other',title:'Other',item_type:'tv'}, {key:'mine',title:'Mine',item_type:'web',season:'2026-07'}, {key:'disabled',title:'Disabled',item_type:'tv'}]});
+  app.element('#test-target').value = 'group:A';
+  app.run('state.items = [{key:"other",title:"Other",item_type:"tv"}]');
+  await app.run('loadTestItems()');
+  assert.deepEqual(app.element('#test-item').children.map(option => option.value), ['mine']);
+  assert.equal(app.element('#test-item').disabled, false);
+  app.element('#test-target').value = 'group:empty';
+  await app.run('loadTestItems()');
+  assert.deepEqual(app.element('#test-item').children, []);
+  assert.equal(app.element('#test-item').disabled, true);
+});
+
+test('a slow card test target response cannot restore choices from another group', async () => {
+  const pending = [];
+  const app = setup((endpoint, params) => endpoint === 'subscriptions'
+    ? new Promise(resolve => pending.push({params,resolve}))
+    : Promise.resolve({items:[{key:'a',title:'A',item_type:'tv'},{key:'b',title:'B',item_type:'tv'}]}));
+  app.element('#test-target').value = 'group:A';
+  const first = app.run('loadTestItems()');
+  app.element('#test-target').value = 'group:B';
+  const second = app.run('loadTestItems()');
+  pending[1].resolve({subscriptions:[{anime_key:'b',enabled:true}]});
+  await second;
+  pending[0].resolve({subscriptions:[{anime_key:'a',enabled:true}]});
+  await first;
+  assert.deepEqual(app.element('#test-item').children.map(option => option.value), ['b']);
+});
+
+test('failed subscription loading keeps card test choices empty and prevents a send', async () => {
+  let sent = 0;
+  const app = setup(async () => { throw new Error('network unavailable'); }, async () => { sent++; });
+  app.element('#test-target').value = 'group:A';
+  await app.run('loadTestItems()');
+  assert.equal(app.element('#test-item').disabled, true);
+  assert.match(app.element('#test-push-status').textContent, /读取测试订阅失败/);
+  await app.run('sendCardTest("reminder_card")');
+  assert.equal(sent, 0);
+});
+
+test('both card test buttons submit the chosen subscribed anime', async () => {
+  const posts = [];
+  const app = setup(async () => ({}), async (endpoint, body) => { posts.push({endpoint,...body}); return {sent:true}; });
+  app.element('#test-target').value = 'group:A';
+  app.element('#test-item').value = 'mine';
+  for (const kind of ['reminder_card', 'update_card']) await app.run(`sendCardTest("${kind}")`);
+  assert.deepEqual(JSON.parse(JSON.stringify(posts)), [
+    {endpoint:'test-push',target_id:'group:A',kind:'reminder_card',anime_key:'mine'},
+    {endpoint:'test-push',target_id:'group:A',kind:'update_card',anime_key:'mine'},
+  ]);
+});
+
 test('Monday 00:30 Japan displays Sunday 23:30 Beijing', () => {
   const app = setup(async () => ({}));
   const text = app.run('firstTime({schedules:[{weekday:1,hour:0,minute:30}]}, "Asia/Shanghai")');

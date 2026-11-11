@@ -23,7 +23,8 @@ astrbot_plugin_anime/
 
 - Change commands or command replies in `main.py` and `rendering/templates.py`.
 - Change reminder text formatting in `rendering/formatters.py`.
-- Change image layouts in `rendering/card_layouts.py`, shared drawing primitives in `rendering/card_canvas.py`, and cover caching in `services/covers.py`.
+- Change single-anime card layouts in `rendering/card_layouts.py`, weekday table layouts in `rendering/swimlane.py`, shared drawing primitives in `rendering/card_canvas.py`, and cover caching in `services/covers.py`.
+- Change subscription-state checks and empty-selection notices in `core/subscriptions.py` and `rendering/templates.py`.
 - Change saved WebUI preferences and validation in `core/store.py` and `web/api.py`.
 - Change data-source behavior in `sources/` and refresh orchestration in `services/refresh.py`.
 - Change daily/weekly subscription table timing in `services/table_scheduler.py`.

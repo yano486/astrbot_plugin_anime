@@ -5,8 +5,9 @@ import re
 from typing import Any
 
 from ..core.models import Subscription
+from ..core.subscriptions import push_subscription_notice
 from ..core.time_utils import BJ
-from ..rendering.templates import template_definitions, validate_message_templates
+from ..rendering.templates import render_template, template_definitions, validate_message_templates
 
 SCHEDULE_SOURCES = {"earliest", "yuc", "bgmlist", "bangumi"}
 DISPLAY_TIMEZONES = {"Asia/Shanghai", "Asia/Tokyo"}
@@ -296,8 +297,9 @@ class AnimeWebAPI:
                 target_state = self.plugin.store.state.setdefault("targets", {}).get(target_id)
                 if target_state is not None:
                     whitelisted, subscribed = subscription_target_state(valid)
-                    target_state["subscribed"] = subscribed
-                    target_state["whitelisted"] = whitelisted
+                    if subscribed:
+                        target_state["subscribed"] = True
+                        target_state["whitelisted"] = whitelisted
                 self.plugin.store.save()
                 return 200, {"saved": len(valid)}
             if endpoint == "movie-release":
@@ -312,26 +314,36 @@ class AnimeWebAPI:
             if endpoint == "test-push":
                 target_id = payload.get("target_id") if isinstance(payload, dict) else None
                 target = self.plugin.store.state.get("targets", {}).get(target_id)
-                if not target or not target.get("enabled", True):
+                if not target:
                     return 400, {"error": "unknown or disabled target"}
                 try:
                     kind = (payload or {}).get("kind", "message")
+                    if kind in {"reminder_card", "update_card", "daily_table", "weekly_table"}:
+                        notice = push_subscription_notice(self.plugin.store, target_id)
+                        if notice:
+                            return 400, {"error": render_template(notice, overrides=self.plugin.store.get_preferences().get("message_templates", {}))}
+                    if not target.get("enabled", True):
+                        return 400, {"error": "unknown or disabled target"}
                     if kind == "message":
                         preferences = self.plugin.store.get_preferences()
-                        from ..rendering.templates import render_template
 
                         await self.plugin._deliver(
                             target_id,
                             render_template("test_message", {}, preferences.get("message_templates", {})),
                         )
                     elif kind in {"reminder_card", "update_card"}:
-                        items = self.plugin.store.get_all_items()
+                        selected_keys = {
+                            sub.anime_key for sub in self.plugin.store.get_subscriptions(target_id) if sub.enabled
+                        }
+                        items = [item for item in self.plugin.store.get_all_items() if item.key in selected_keys]
                         key = (payload or {}).get("anime_key")
                         item = next((value for value in items if value.key == key), None) if key else None
-                        if kind == "reminder_card" and item is None:
+                        if key and item is None:
+                            return 400, {"error": "请选择该目标已保存且启用的订阅动画"}
+                        if kind == "reminder_card" and not key:
                             item = next((value for value in items if value.item_type in ("tv", "web") and value.schedules), None)
                         if item is None:
-                            return 400, {"error": "no suitable anime found; refresh catalog or select an anime"}
+                            return 400, {"error": "未添加动画推送，请选择该目标可用的订阅动画"}
                         await self.plugin._deliver_card(target_id, item, "reminder" if kind == "reminder_card" else "update")
                     elif kind in {"daily_table", "weekly_table"}:
                         table_scheduler = getattr(self.plugin, "table_scheduler", None)

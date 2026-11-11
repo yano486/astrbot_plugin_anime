@@ -34,6 +34,8 @@ VARIABLE_DESCRIPTIONS = {
 }
 
 TEMPLATE_DEFINITIONS: dict[str, dict[str, Any]] = {
+    "push_not_subscribed": {"label": "推送目标未订阅", "description": "群聊或会话未开启订阅时的回复", "variables": ()},
+    "push_no_anime": {"label": "推送未选动画", "description": "已开启订阅但没有选择动画时的回复", "variables": ()},
     "help_english": {"label": "\u82f1\u6587\u5e2e\u52a9", "description": "/anime help \u7684\u56de\u590d", "variables": ()},
     "help_chinese": {"label": "\u4e2d\u6587\u5e2e\u52a9", "description": "/anime\u5e2e\u52a9 \u7684\u56de\u590d", "variables": ()},
     "command_usage": {"label": "\u547d\u4ee4\u7528\u6cd5", "description": "\u65e0\u6cd5\u8bc6\u522b\u547d\u4ee4\u65f6\u7684\u56de\u590d", "variables": ()},
@@ -57,6 +59,8 @@ TEMPLATE_DEFINITIONS: dict[str, dict[str, Any]] = {
 }
 
 DEFAULT_MESSAGE_TEMPLATES = {
+    "push_not_subscribed": "订阅群没有订阅，请先使用 /anime 订阅 开启。",
+    "push_no_anime": "未添加动画推送，请在 WebUI 勾选动画并保存订阅。",
     "help_english": "Commands: /anime help, /anime push (today), /anime week (this week), /anime ova (selected movies/OVA), /anime sub (enable reminders).\nChinese suffixes are also supported: \u63a8\u9001\u3001\u672c\u5468\u3001\u5267\u573a\u7248\u3001\u8ba2\u9605\u3002\n/anime\u7ed1\u5b9a binds the current conversation, /anime\u89e3\u7ed1 removes it, /anime\u5217\u8868 shows subscriptions, and /anime\u5237\u65b0 refreshes the current season.",
     "help_chinese": "\u4e3b\u8981\u547d\u4ee4：/anime push（\u4eca\u65e5\u64ad\u653e\u8868）、/anime week（\u672c\u5468\u64ad\u653e\u8868）、/anime ova（\u5df2\u9009\u5267\u573a\u7248/OVA\u4e0a\u6620\u8868）、/anime sub（\u5f00\u542f\u81ea\u52a8\u63a8\u9001）。\n\u540e\u7f00\u4e5f\u652f\u6301\u4e2d\u6587：\u63a8\u9001、\u672c\u5468、\u5267\u573a\u7248、\u8ba2\u9605。\n/anime\u7ed1\u5b9a - \u7ed1\u5b9a\u5f53\u524d\u7fa4/\u4f1a\u8bdd\u4e3a WebUI \u63a8\u9001\u76ee\u6807\n/anime\u89e3\u7ed1 - \u89e3\u7ed1\u5f53\u524d\u76ee\u6807\n/anime\u5217\u8868 - \u67e5\u770b\u5f53\u524d\u76ee\u6807\u8ba2\u9605\n/anime\u5237\u65b0 - \u7ba1\u7406\u5458\u5237\u65b0\u5f53\u5b63\u52a8\u753b\n\u5728 AstrBot \u63d2\u4ef6\u8be6\u60c5\u9875\u6253\u5f00“\u52a8\u753b\u8ba2\u9605”\u8fdb\u884c\u7b5b\u9009\u548c\u52fe\u9009。",
     "command_usage": "\u547d\u4ee4：/anime help、/anime push、/anime week、/anime ova、/anime sub（\u4e2d\u6587\u540e\u7f00\u4e5f\u652f\u6301）",

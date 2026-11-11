@@ -80,7 +80,7 @@
           <div class="preference-field"><span>显示与推送时间</span><select id="display-timezone" aria-label="显示与推送时间"><option value="Asia/Shanghai">北京时间</option><option value="Asia/Tokyo">日本时间</option></select></div>
           <div class="preference-field"><span>是否排除 R18 内容</span><select id="exclude-r18" aria-label="是否排除 R18 内容"><option value="false">否</option><option value="true">是</option></select></div>
           <div class="preference-field"><span>推送方式</span><select id="push-mode" aria-label="推送方式"><option value="text">文字</option><option value="card">卡片</option></select></div>
-          <div class="preference-field"><span>卡片样式</span><select id="card-style" aria-label="卡片样式"><option value="info">A · 信息卡</option><option value="poster">B · 海报编排</option><option value="compact">C · 紧凑排期</option></select></div>
+          <div class="preference-field"><span>单部卡片样式</span><select id="card-style" aria-label="单部卡片样式"><option value="info">A · 信息卡</option><option value="poster">B · 海报编排</option><option value="compact">C · 紧凑排期</option></select></div>
           <div class="preference-field"><span>卡片配色</span><select id="card-theme" aria-label="卡片配色"><option value="dark">深色</option><option value="light">浅色</option></select></div>
           <button class="button button-accent" id="save-preferences" type="button">保存设置</button>
         </div>
@@ -94,11 +94,11 @@
           <div class="preference-field"><span>每周一推送</span><select id="weekly-table-enabled" aria-label="每周订阅番表图片推送"><option value="false">否</option><option value="true">是</option></select></div>
           <div class="preference-field"><span>每周一时间</span><input id="weekly-table-time" type="text" value="00:00" inputmode="numeric" maxlength="5" pattern="(?:[01]\d|2[0-3]):[0-5]\d" aria-label="每周订阅番表推送时间"></div>
         </div>
-        <small>默认关闭，默认时间为 00:00；时间按上方选择的显示与推送时区计算。所有图片采用上方选择的卡片样式和配色，不跟随 WebUI 亮色或暗色切换。</small>
+        <small>默认关闭，默认时间为 00:00；时间按上方选择的时区计算。番表统一按星期分行、封面小卡横向排列，作品较多时自动换行；配色使用上方卡片配色，不跟随 WebUI 亮色或暗色切换。</small>
       </section>
       <section class="test-push-panel">
-        <div class="test-push-heading"><div><h2>推送测试</h2><p>先选择目标；可测试文字消息、开播提醒图片卡片或单部动画更新卡片。</p></div></div>
-        <div class="test-push-targets"><select id="test-target" aria-label="选择测试推送目标"><option value="">选择推送目标</option></select><select id="test-item" aria-label="选择动画更新卡片作品"><option value="">选择动画</option></select></div>
+        <div class="test-push-heading"><div><h2>推送测试</h2><p>先选择目标；图片仅使用该目标已保存且启用的订阅，可测试开播提醒、动画更新和每日/每周番表。</p></div></div>
+        <div class="test-push-targets"><select id="test-target" aria-label="选择测试推送目标"><option value="">选择推送目标</option></select><select id="test-item" aria-label="选择动画更新卡片作品" disabled><option value="">选择订阅动画</option></select></div>
         <div class="test-push-actions"><button class="button button-quiet" id="test-push">消息测试</button><button class="button button-accent" id="test-reminder-card">开播提醒卡片</button><button class="button button-quiet" id="test-update-card">动画更新卡片</button><button class="button button-quiet" id="test-daily-table">每日番表图片</button><button class="button button-quiet" id="test-weekly-table">每周番表图片</button></div>
         <div id="test-push-status" role="status"></div>
       </section>

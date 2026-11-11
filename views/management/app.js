@@ -2,6 +2,7 @@ const bridge = window.AstrBotPluginView;
 const $ = (selector) => document.querySelector(selector);
 const state = { items: [], targets: [], subscriptions: new Map(), subscriptionsTarget: "", showSubscribedOnly: false, weekday: "", sources: {}, movieSources: {}, templateDefinitions: [], preferences: { schedule_source: "earliest", display_timezone: "Asia/Shanghai", exclude_r18: false, push_mode: "text", message_templates: {} }, periodMode: "", periodSelections: { season: "", broadcast: "", year: "" } };
 const templateSelections = new Map();
+let testItemsRequest = 0;
 
 function currentSeason(now = new Date()) {
   const month = Math.floor((now.getMonth()) / 3) * 3 + 1;
@@ -391,16 +392,6 @@ async function loadItems(shouldRefresh = false, fullYear = false) {
   state.items = result.items;
   configurePeriodControl();
   sourceChoices(); render();
-  const itemSelect = $("#test-item");
-  if (itemSelect) {
-    const oldItem = itemSelect.value;
-    itemSelect.innerHTML = '<option value="">选择动画</option>';
-    state.items.filter(item => item.item_type === "tv" || item.item_type === "web").forEach(item => {
-      const option = document.createElement("option"); option.value = item.key; option.textContent = item.title_cn || item.title; itemSelect.append(option);
-    });
-    if (state.items.some(item => item.key === oldItem)) itemSelect.value = oldItem;
-    window.AnimeControls?.refresh(itemSelect);
-  }
   $("#refresh-status").textContent = `已载入 ${result.count || 0} 部 · ${result.updated_at || "尚未获取"}`;
 }
 
@@ -429,13 +420,6 @@ async function loadTargets() {
   if (state.targets.some(target => target.enabled && target.target_id === oldTestTarget)) testSelect.value = oldTestTarget;
   window.AnimeControls?.refresh(select);
   window.AnimeControls?.refresh(testSelect);
-  const itemSelect = $("#test-item"); const oldItem = itemSelect.value;
-  itemSelect.innerHTML = '<option value="">选择动画</option>';
-  state.items.filter(item => item.item_type === "tv" || item.item_type === "web").forEach(item => {
-    const option = document.createElement("option"); option.value = item.key; option.textContent = item.title_cn || item.title; itemSelect.append(option);
-  });
-  if (state.items.some(item => item.key === oldItem)) itemSelect.value = oldItem;
-  window.AnimeControls?.refresh(itemSelect);
   const list = $("#whitelist-list"); list.replaceChildren();
   state.targets.filter(target => target.enabled).forEach(target => {
     const label = document.createElement("label"); label.className = "whitelist-target";
@@ -445,6 +429,45 @@ async function loadTargets() {
     });
     list.append(label);
   });
+  await loadTestItems();
+}
+
+async function loadTestItems() {
+  const requestId = ++testItemsRequest;
+  const targetId = $("#test-target").value;
+  const select = $("#test-item");
+  const previous = select.value;
+  select.innerHTML = '<option value="">选择订阅动画</option>';
+  select.disabled = true;
+  window.AnimeControls?.refresh(select);
+  if (!targetId) return;
+  const target = state.targets.find(target => target.target_id === targetId);
+  if (target && !target.subscribed) {
+    $("#test-push-status").textContent = "订阅群没有订阅，请先开启订阅。";
+    return;
+  }
+  try {
+    const [subscriptions, catalog] = await Promise.all([
+      bridge.apiGet("subscriptions", {target_id: targetId}),
+      bridge.apiGet("items", {season: "all"}),
+    ]);
+    if (requestId !== testItemsRequest || $("#test-target").value !== targetId) return;
+    const keys = new Set((subscriptions.subscriptions || []).filter(sub => sub.enabled).map(sub => sub.anime_key));
+    const items = (catalog.items || []).filter(item => keys.has(item.key));
+    items.forEach(item => {
+      const option = document.createElement("option");
+      option.value = item.key;
+      option.textContent = item.title_cn || item.title;
+      select.append(option);
+    });
+    if (items.some(item => item.key === previous)) select.value = previous;
+    select.disabled = !items.length;
+    window.AnimeControls?.refresh(select);
+    $("#test-push-status").textContent = items.length ? "已读取该目标订阅，可选择动画测试。" : "未添加动画推送，请先勾选动画并保存订阅。";
+  } catch (error) {
+    if (requestId !== testItemsRequest || $("#test-target").value !== targetId) return;
+    $("#test-push-status").textContent = `读取测试订阅失败：${error.message}`;
+  }
 }
 
 function removeWhitelist(event) {
@@ -511,10 +534,11 @@ async function sendCardTest(kind) {
   const targetId = $("#test-target").value;
   if (!targetId) { $("#test-push-status").textContent = "请先选择推送目标。"; return; }
   const payload = {target_id: targetId, kind};
-  if (kind === "update_card") {
-    payload.anime_key = $("#test-item").value;
-    if (!payload.anime_key) { $("#test-push-status").textContent = "请先选择要测试的动画。"; return; }
-  }
+  const target = state.targets.find(target => target.target_id === targetId);
+  if (target && !target.subscribed) { $("#test-push-status").textContent = "订阅群没有订阅，请先开启订阅。"; return; }
+  payload.anime_key = $("#test-item").value;
+  if ($("#test-item").disabled) { $("#test-push-status").textContent = "未添加动画推送，请先勾选动画并保存订阅。"; return; }
+  if (!payload.anime_key) { $("#test-push-status").textContent = "请选择要测试的订阅动画。"; return; }
   $("#test-push-status").textContent = "正在生成并发送图片卡片…";
   try {
     await bridge.apiPost("test-push", payload);
@@ -542,6 +566,8 @@ async function addUmoTarget() {
     const result = await bridge.apiPost("targets/umo", {umo: input.value.trim()});
     await loadTargets();
     $("#test-target").value = result.target_id;
+    window.AnimeControls?.refresh($("#test-target"));
+    await loadTestItems();
     input.value = "";
     $("#test-push-status").textContent = "会话已添加到白名单，可直接用于推送测试。";
   } catch (error) {
@@ -749,6 +775,7 @@ async function init() {
     $("#save-subs").addEventListener("click", saveSubscriptions);
     $("#save-whitelist").addEventListener("click", saveWhitelist);
     $("#test-push").addEventListener("click", sendTestPush);
+    $("#test-target").addEventListener("change", loadTestItems);
     $("#test-reminder-card").addEventListener("click", () => sendCardTest("reminder_card"));
     $("#test-update-card").addEventListener("click", () => sendCardTest("update_card"));
     $("#test-daily-table").addEventListener("click", () => sendTableTest("daily"));

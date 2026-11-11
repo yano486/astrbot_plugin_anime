@@ -56,7 +56,7 @@ class PushTableTests(unittest.TestCase):
             path = render_weekly_image("本周动画播放表", rows, Path(directory) / "week.png")
             with Image.open(path) as image:
                 self.assertEqual(image.format, "PNG")
-                self.assertEqual(image.width, 1200)
+                self.assertEqual(image.width, 2400)
 
     def test_combined_table_is_a_single_png(self) -> None:
         rows = airings_between([self.item], datetime(2026, 10, 6, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")), datetime(2026, 10, 7, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai")))
@@ -64,7 +64,7 @@ class PushTableTests(unittest.TestCase):
             path = render_airings_image("今日动画", rows, Path(directory) / "today.png")
             with Image.open(path) as image:
                 self.assertEqual(image.format, "PNG")
-                self.assertEqual(image.width, 1200)
+                self.assertEqual(image.width, 2400)
                 self.assertGreater(image.height, 200)
 
     def test_notification_card_renders_for_reminder_and_update_modes(self) -> None:
@@ -117,7 +117,7 @@ class PushTableTests(unittest.TestCase):
                             self.assertFalse(any(source.lower() in "\n".join(text_drawn).lower() for source in self.item.sources))
                             self.assertIn("测试动画", "\n".join(text_drawn))
                             with Image.open(path) as image:
-                                self.assertEqual(image.width, 1200)
+                                self.assertEqual(image.width, 1200 if renderer == render_notification_card else 2400)
                                 self.assertIn((217, 78, 34), [rgb for _, rgb in image.getcolors(image.width * image.height)])
 
     def test_invalid_layout_does_not_silently_render_another_style(self) -> None:
@@ -137,7 +137,7 @@ class PushTableTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory, patch.object(ImageDraw.ImageDraw, "text", draw_text):
             render_weekly_image("本周番表", rows, Path(directory) / "empty-days.png", card_style="compact")
-        weekday_y = [xy[1] for xy, text in drawn if xy[0] == 52 and text in ["周" + day for day in "一二三四五六日"]]
+            weekday_y = [xy[1] for xy, text in drawn if text in ["周" + day for day in "一二三四五六日"]]
         self.assertEqual(len(weekday_y), 7)
         self.assertTrue(all(right - left >= 130 for left, right in zip(weekday_y, weekday_y[1:])))
 
@@ -160,6 +160,31 @@ class PushTableTests(unittest.TestCase):
             render_notification_card(movie, "reminder", Path(directory) / "ova.png")
             self.assertIn("2027-01-15", drawn)
             self.assertFalse(any("00:00" in value for value in drawn))
+
+    def test_swimlane_wraps_after_five_cards_and_keeps_every_title(self):
+        from dataclasses import replace
+        from astrbot_plugin_anime.rendering.push_tables import Airing, render_weekly_image
+
+        now = datetime(2026, 11, 11, 22, tzinfo=ZoneInfo("Asia/Shanghai"))
+        rows = [Airing(replace(self.item, key=f"item:{index}", title_cn=f"订阅作品{index}"), self.item.schedules[0], now) for index in range(11)]
+        drawn = []
+        real_text = ImageDraw.ImageDraw.text
+
+        def draw_text(draw, xy, text, *args, **kwargs):
+            drawn.append((xy, str(text)))
+            return real_text(draw, xy, text, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(ImageDraw.ImageDraw, "text", draw_text):
+            path = render_weekly_image("本周订阅番表", rows, Path(directory) / "wrap.png")
+            with Image.open(path) as image:
+                self.assertEqual(image.width, 2400)
+        titles = [(xy, text) for xy, text in drawn if text.startswith("订阅作品")]
+        self.assertEqual({text for _, text in titles}, {f"订阅作品{index}" for index in range(11)})
+        counts = {}
+        for (x, y), _ in titles:
+            self.assertLess(x, 2400)
+            counts[y] = counts.get(y, 0) + 1
+        self.assertEqual(sorted(counts.values()), [1, 5, 5])
 
     def test_generated_table_cleanup_removes_only_expired_plugin_pngs(self) -> None:
         import os

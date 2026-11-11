@@ -26,7 +26,7 @@ class PackageSmokeTests(unittest.TestCase):
         self.assertIsNotNone(source_version)
         self.assertEqual(metadata_version.group(1), source_version.group(1))
         self.assertIn('author: !!str 486', metadata)
-        self.assertIn('"0.3.17"', source)
+        self.assertIn('"0.3.18"', source)
         self.assertIn('register("astrbot_plugin_anime", "486"', source)
         self.assertIn("MIT License", (root / "LICENSE").read_text(encoding="utf-8"))
         self.assertTrue((root / "PROJECT_STRUCTURE.md").is_file())

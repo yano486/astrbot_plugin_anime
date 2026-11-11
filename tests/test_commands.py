@@ -13,9 +13,66 @@ from support import install_astrbot_stubs
 install_astrbot_stubs()
 
 from astrbot_plugin_anime.main import AnimePlugin
+from astrbot_plugin_anime.core.models import AnimeItem, Schedule, Subscription, Target
+from astrbot_plugin_anime.core.store import JsonStore
+from astrbot_plugin_anime.core.time_utils import BJ
 
 
 class CommandAliasTests(unittest.TestCase):
+    def test_daily_and_weekly_commands_render_only_current_conversation_subscriptions(self):
+        class FixedNow(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return cls(2026, 11, 11, 12, tzinfo=BJ).astimezone(tz or BJ)
+
+        class Event:
+            def __init__(self, target, action):
+                self.unified_msg_origin = target
+                self.message_str = "/anime " + action
+
+            @staticmethod
+            def plain_result(text):
+                return text
+
+        async def collect(plugin, event):
+            return [value async for value in plugin.anime_command(event)]
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = JsonStore(Path(directory) / "state.json")
+            store.set_items([
+                AnimeItem(key=key, title=key, item_type={"b": "web", "unknown": "unknown"}.get(key, "tv"), region="jp", schedules=[Schedule(3, 22, 0, "22:00", "fixture", start_date="2026-11-11")])
+                for key in ("a", "b", "unknown", "disabled", "catalog-only")
+            ])
+            store.set_subscription(Subscription("bot:GroupMessage:A", "a"))
+            store.set_subscription(Subscription("bot:GroupMessage:A", "disabled", enabled=False))
+            store.set_subscription(Subscription("bot:GroupMessage:B", "b"))
+            store.set_subscription(Subscription("bot:FriendMessage:42", "b"))
+            store.set_subscription(Subscription("bot:GroupMessage:unknown", "unknown"))
+            store.set_subscription(Subscription("bot:GroupMessage:empty", "disabled", enabled=False))
+            for target in ("bot:GroupMessage:A", "bot:GroupMessage:B", "bot:FriendMessage:42", "bot:GroupMessage:empty", "bot:GroupMessage:unknown"):
+                store.upsert_target(Target(target, subscribed=True, whitelisted=True))
+            store.upsert_target(Target("bot:GroupMessage:off", subscribed=False))
+            store.set_subscription(Subscription("bot:GroupMessage:off", "a"))
+            plugin = AnimePlugin.__new__(AnimePlugin)
+            plugin.store = store
+            rendered = []
+
+            async def render(event, title, rows):
+                rendered.append([row.item.key for row in rows])
+                return rendered[-1]
+
+            plugin._send_airings_image = render
+            with patch("astrbot_plugin_anime.main.datetime", FixedNow):
+                for action in ("push", "推送", "week", "本周"):
+                    for target, expected in (("bot:GroupMessage:A", ["a"]), ("bot:GroupMessage:B", ["b"]), ("bot:FriendMessage:42", ["b"]), ("bot:GroupMessage:unknown", ["unknown"])):
+                        with self.subTest(action=action, target=target):
+                            self.assertEqual(asyncio.run(collect(plugin, Event(target, action))), [expected])
+                    for target, notice in (("bot:GroupMessage:none", "订阅群没有订阅"), ("bot:GroupMessage:off", "订阅群没有订阅"), ("bot:GroupMessage:empty", "未添加动画推送"), (None, "会话")):
+                        before = len(rendered)
+                        replies = asyncio.run(collect(plugin, Event(target, action)))
+                        self.assertEqual(len(rendered), before)
+                        self.assertIn(notice, replies[0])
+
     def test_english_and_chinese_help_use_independent_templates(self) -> None:
         class Store:
             @staticmethod

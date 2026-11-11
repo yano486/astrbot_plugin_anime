@@ -122,6 +122,61 @@ class SubscriptionTableSchedulerTests(unittest.TestCase):
         self.assertEqual(count, 0)
         self.assertEqual(sent, [])
 
+    def test_weekly_and_test_tables_never_include_other_targets_or_disabled_items(self):
+        from dataclasses import replace
+
+        disabled = replace(self.monday, key="disabled")
+        catalog = replace(self.monday, key="catalog-only")
+        store = TableStore(
+            [self.monday, self.tuesday, disabled, catalog],
+            [Subscription("group:A", self.monday.key), Subscription("group:A", disabled.key, enabled=False), Subscription("group:B", self.tuesday.key)],
+            {**self.preferences, "daily_table_enabled": False},
+        )
+        sent = []
+
+        async def deliver(target, kind, rows, timezone):
+            sent.append((target, kind, [row.item.key for row in rows]))
+            return True
+
+        async def run():
+            scheduler = SubscriptionTableScheduler(store, deliver)
+            now = datetime(2026, 11, 2, tzinfo=ZoneInfo("Asia/Shanghai"))
+            self.assertEqual(await scheduler.check_once(now), 2)
+            self.assertEqual(sent[:2], [("group:A", "weekly", [self.monday.key]), ("group:B", "weekly", [self.tuesday.key])])
+            for kind in ("daily", "weekly"):
+                await scheduler.send_test("group:A", kind, now)
+                self.assertEqual(sent[-1], ("group:A", kind, [self.monday.key]))
+            await scheduler.send_test("group:empty", "weekly", now)
+            self.assertEqual(sent[-1], ("group:empty", "weekly", []))
+
+        asyncio.run(run())
+
+    def test_tables_keep_subscribed_airings_without_type_labels_but_exclude_movies(self):
+        from dataclasses import replace
+
+        unknown = replace(self.monday, key="unknown", item_type="unknown")
+        movies = [replace(self.monday, key=kind, item_type=kind) for kind in ("movie", "ova")]
+        store = TableStore(
+            [unknown, *movies, self.monday],
+            [Subscription("group:A", item.key) for item in [unknown, *movies]],
+            self.preferences,
+        )
+        sent = []
+
+        async def deliver(target, kind, rows, timezone):
+            sent.append((kind, [row.item.key for row in rows]))
+            return True
+
+        async def run():
+            scheduler = SubscriptionTableScheduler(store, deliver)
+            now = datetime(2026, 11, 2, tzinfo=ZoneInfo("Asia/Shanghai"))
+            self.assertEqual(await scheduler.check_once(now), 2)
+            for kind in ("daily", "weekly"):
+                await scheduler.send_test("group:A", kind, now)
+            self.assertEqual(sent, [(kind, [unknown.key]) for kind in ("daily", "weekly", "daily", "weekly")])
+
+        asyncio.run(run())
+
 
 if __name__ == "__main__":
     unittest.main()

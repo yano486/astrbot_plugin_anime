@@ -19,6 +19,7 @@ from .services.table_scheduler import SubscriptionTableScheduler
 from .services.refresh import RefreshService
 from .services.covers import CoverCache
 from .core.store import JsonStore
+from .core.subscriptions import push_subscription_notice
 from .web.api import AnimeWebAPI
 from .rendering.push_tables import Airing, airings_between, cleanup_generated_tables, render_airings_image, render_weekly_image, render_notification_card, render_subscription_table_image, upcoming_movies
 from .rendering.templates import render_template, template_context
@@ -28,7 +29,7 @@ from .core.time_utils import BJ, JST
 plugin_logger = get_plugin_logger()
 
 
-PLUGIN_VERSION = "0.3.17"
+PLUGIN_VERSION = "0.3.18"
 
 
 @register("astrbot_plugin_anime", "486", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)
@@ -366,11 +367,15 @@ class AnimePlugin(Star):
         display_timezone = preferences["display_timezone"]
         display_zone = JST if display_timezone == "Asia/Tokyo" else BJ
         now = datetime.now(BJ).astimezone(display_zone)
+        target_id = getattr(event, "unified_msg_origin", None)
+        if not target_id:
+            yield event.plain_result(self._reply("unknown_session"))
+            return
+        notice = push_subscription_notice(self.store, target_id)
+        if notice:
+            yield event.plain_result(self._reply(notice))
+            return
         if action_name == "ova":
-            target_id = getattr(event, "unified_msg_origin", None)
-            if not target_id:
-                yield event.plain_result(self._reply("unknown_session"))
-                return
             movie_items = {item.key: item for item in self.store.get_movie_items()}
             selected_keys = {
                 sub.anime_key for sub in self.store.get_subscriptions(target_id)
@@ -400,7 +405,11 @@ class AnimePlugin(Star):
             yield await self._send_airings_image(event, "已选剧场版与OVA上映表", adjusted)
             return
 
-        all_items = [item for item in self.store.get_items() if item.region in ("jp", "mixed")]
+        selected_keys = {sub.anime_key for sub in self.store.get_subscriptions(target_id) if sub.enabled}
+        selected_items = [
+            item for item in self.store.get_items()
+            if item.key in selected_keys
+        ]
 
         if action_name == "push":
             start = datetime.combine(now.date(), time.min, display_zone)
@@ -411,7 +420,7 @@ class AnimePlugin(Star):
             start = datetime.combine(monday, time.min, display_zone)
             end = start + timedelta(days=7)
             title = "本周动画播放表"
-        rows = airings_between(all_items, start, end)
+        rows = airings_between(selected_items, start, end)
         yield await self._send_airings_image(event, title, rows)
 
     @filter.command("anime帮助")

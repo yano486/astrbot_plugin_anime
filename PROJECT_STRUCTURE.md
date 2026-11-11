@@ -30,3 +30,4 @@ astrbot_plugin_anime/
 - Change daily/weekly subscription table timing in `services/table_scheduler.py`.
 - Run the Python suite with `PYTHONPATH=.. python -m unittest discover -s tests -v`.
 - Run the WebUI suite with `node --test tests/test_login.mjs tests/test_management.mjs`.
+- With Playwright available, run `node tests/test_catalog_layout.cjs` for real browser layout and interaction checks. `ANIME_BROWSER_EXECUTABLE` selects an installed Chromium browser; `ANIME_LAYOUT_OUTPUT` saves screenshots and measurements.

@@ -474,23 +474,23 @@ test('catalog places the push target row beside search and keeps filters in the 
 
 test('catalog actions use a fixed bottom dock with compact inline status', () => {
   assert.match(markup, /id="save-status"/);
-  assert.match(markup, /class="target-row"[\s\S]*id="save-status"/);
+  assert.match(markup, /id="save-subs"[^]*?<\/section>\s*<div id="save-status"/);
   assert.doesNotMatch(markup, /dismiss-status/);
   assert.match(styles, /\.catalog-command-row\{[^}]*position:fixed/);
   assert.match(styles, /\.status-inline\{/);
   assert.doesNotMatch(styles, /\.status-notice\{/);
 });
 
-test('catalog fetch status wraps below target controls instead of shrinking the selector', () => {
-  assert.match(styles, /\.target-row\{[^}]*flex-wrap:wrap/);
-  assert.match(styles, /\.status-inline\{[^}]*flex:\s*1 1 360px/);
-  assert.match(styles, /\.target-row select,\.target-row \.select-control\{min-width:0;flex:1/);
+test('catalog fetch status occupies a separate grid row from target controls', () => {
+  assert.match(styles, /\.target-row\{[^}]*grid-template-columns:auto minmax\(220px,1fr\) auto auto/);
+  assert.match(styles, /\.status-inline\{[^}]*grid-column:1\/-1/);
+  assert.match(markup, /<div id="save-status"/);
 });
 
-test('bottom status message can expand within the fixed target row', () => {
-  assert.match(styles, /\.status-inline\{[^}]*flex:\s*1 1 360px/s);
+test('bottom status message spans the dock without taking width from the selector', () => {
+  assert.match(styles, /\.status-inline\{[^}]*grid-column:1\/-1/);
   assert.doesNotMatch(styles, /\.status-inline\{[^}]*max-width:/);
-  assert.match(styles, /\.status-inline\{flex-basis:100%/);
+  assert.match(source, /new ResizeObserver\(update\)\.observe\(dock\)/);
 });
 
 test('calendar month navigation restores focus after rerendering month buttons', () => {
@@ -533,7 +533,7 @@ test('catalog navigation and headings use subscription wording and settings owns
 });
 
 test('management UI loads custom controls and does not use native date inputs', () => {
-  assert.match(markup, /src="\.\/controls\.js"/);
+  assert.match(markup, /src="\.\/controls\.js\?v=[\d.]+"/);
   assert.match(controls, /role", "listbox"|role="listbox"/);
   assert.match(controls, /ArrowDown/);
   assert.match(controls, /role", "dialog"|role="dialog"/);
@@ -545,7 +545,7 @@ test('management UI loads custom controls and does not use native date inputs', 
   assert.match(styles, /\.select-popover\[data-placement="top"\]/);
   assert.match(styles, /\.date-popover\[data-placement="top"\]/);
   assert.match(styles, /\.date-popover\[data-align="right"\]/);
-  assert.match(styles, /\.target-row select,\.target-row \.select-control\{min-width:0;flex:1/);
+  assert.match(styles, /\.target-row select,\.target-row \.select-control\{[^}]*min-width:220px/);
 });
 
 test('push test panel uses a full-width heading and separate responsive control rows', () => {

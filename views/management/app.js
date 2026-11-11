@@ -162,6 +162,14 @@ function setStatus(message, kind = "") {
   notice.hidden = !message;
 }
 
+function observeCatalogDock() {
+  const dock = $(".catalog-command-row");
+  const workspace = $(".workspace");
+  const update = () => workspace.style.setProperty("--catalog-dock-height", `${Math.ceil(dock.getBoundingClientRect().height)}px`);
+  new ResizeObserver(update).observe(dock);
+  update();
+}
+
 function safeHttpUrl(value = "") {
   try {
     const url = new URL(value);
@@ -757,6 +765,7 @@ async function init() {
     await bridge.ready();
     configurePeriodControl();
     window.AnimeControls?.enhanceAll();
+    observeCatalogDock();
     setTheme(storedTheme() === "dark" ? "dark" : "light");
     for (const id of ["query", "region", "adaptation-type", "source"]) $("#" + id).addEventListener(id === "query" ? "input" : "change", render);
     document.querySelectorAll("#weekday-buttons [data-weekday]").forEach(button => button.addEventListener("click", () => {

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>动画订阅</title>
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./style.css?v=0.3.20">
 </head>
 <body>
   <main class="shell">
@@ -43,11 +43,11 @@
       <section class="target-row">
         <label for="target">提醒发送到</label>
         <select id="target" aria-label="提醒发送到"><option value="">选择已绑定的群或会话</option></select>
-        <span>先在机器人会话中执行 <code>/anime绑定</code></span>
+        <span class="target-hint">先在机器人会话中执行 <code>/anime绑定</code></span>
         <button class="button button-quiet" id="load-subs">读取订阅</button>
         <button class="button button-accent" id="save-subs">保存所选订阅</button>
-        <span id="save-status" class="status-inline" role="status" hidden><span class="status-inline-text"></span></span>
       </section>
+      <div id="save-status" class="status-inline" role="status" hidden><span class="status-inline-text"></span></div>
     </section>
 
     <section class="toolbar">
@@ -113,12 +113,12 @@
       </section>
     </section>
 
-        <footer><span>排期仅代表来源记录，不等于视频实际上线。</span></footer>
+        <footer><span>排期仅代表来源记录，不等于视频实际上线。</span><span class="webui-version">v0.3.20</span></footer>
       </div>
     </div>
   </main>
-  <script src="./bridge.js"></script>
-  <script src="./controls.js"></script>
-  <script type="module" src="./app.js"></script>
+  <script src="./bridge.js?v=0.3.20"></script>
+  <script src="./controls.js?v=0.3.20"></script>
+  <script type="module" src="./app.js?v=0.3.20"></script>
 </body>
 </html>

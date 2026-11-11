@@ -68,7 +68,8 @@
       control.popup.append(item);
     });
     const selected = source.options[source.selectedIndex];
-    control.trigger.textContent = selected?.textContent || source.getAttribute("data-placeholder") || "请选择";
+    control.value.textContent = selected?.textContent || source.getAttribute("data-placeholder") || "请选择";
+    control.trigger.title = control.value.textContent;
     control.trigger.disabled = source.disabled || source.options.length === 0;
     control.trigger.setAttribute("aria-label", source.getAttribute("aria-label") || control.trigger.textContent);
   }
@@ -87,13 +88,16 @@
     trigger.className = "select-trigger";
     trigger.setAttribute("aria-haspopup", "listbox");
     trigger.setAttribute("aria-expanded", "false");
+    const value = doc.createElement("span");
+    value.className = "select-value";
+    trigger.append(value);
     const popup = doc.createElement("div");
     popup.className = "select-popover";
     popup.id = `anime-select-${++controlId}`;
     popup.setAttribute("role", "listbox");
     popup.hidden = true;
     trigger.setAttribute("aria-controls", popup.id);
-    const control = { source, wrapper, trigger, popup };
+    const control = { source, wrapper, trigger, popup, value };
 
     source.parentNode.insertBefore(wrapper, source);
     wrapper.append(source, trigger, popup);

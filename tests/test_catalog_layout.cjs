@@ -12,6 +12,11 @@ const version = fs.readFileSync(path.join(root, 'metadata.yaml'), 'utf8').match(
 const now = new Date();
 const season = `${now.getFullYear()}-${String(Math.floor(now.getMonth() / 3) * 3 + 1).padStart(2, '0')}`;
 const target = 'default:GroupMessage:12345678901234567890';
+const templates = ['推送目标未订阅', '推送未选动画', '英文帮助', '中文帮助', '命令用法', '绑定成功', '绑定失败', '解绑成功', '解绑失败', '订阅状态', '关闭订阅', '无法识别会话', '未选择剧场版', '没有订阅', '订阅列表为空', '订阅列表', '刷新结果', '提前提醒', '按时播出', '剧场版/OVA提醒', '测试消息', '图片生成失败'].map((label, index) => ({
+  key: `template_${index}`, label, description: `${label}时使用的回复文本`,
+  default: index % 2 ? '命令：/anime help、/anime push、/anime week、/anime ova、/anime sub\n中文后缀也支持。\n{title}' : '{title} 即将播出',
+  variables: ['title'], variable_descriptions: { title: '动画名称' },
+}));
 const items = Array.from({ length: 132 }, (_, index) => ({
   key: `anime:${index}`, title: index ? 'ごーすとみーつ・ぎゃる！' : 'FX戦士くるみちゃん',
   title_cn: index ? `Ghost Meets Gal! ${index}` : 'FX战士久留美',
@@ -38,7 +43,7 @@ const server = createServer(async (req, res) => {
       posts.push({ endpoint: url.pathname, body });
     }
     let result = {};
-    if (url.pathname === '/api/status') result = { sources: { bangumi: { status: 'ok', count: 132 }, yuc: { status: 'ok', count: 98 }, bgmlist: { status: 'ok', count: 102 } }, preferences: { display_timezone: 'Asia/Shanghai' }, template_definitions: [] };
+    if (url.pathname === '/api/status') result = { sources: { bangumi: { status: 'ok', count: 132 }, yuc: { status: 'ok', count: 98 }, bgmlist: { status: 'ok', count: 102 } }, preferences: { display_timezone: 'Asia/Shanghai' }, template_definitions: templates };
     if (url.pathname === '/api/targets') result = { targets: [{ target_id: target, display_name: '已绑定的测试群聊与很长的群聊名称', enabled: true, subscribed: true }] };
     if (url.pathname === '/api/items') result = { items, count: items.length };
     if (url.pathname === '/api/subscriptions') result = { subscriptions: [{ anime_key: items[0].key, enabled: true, lead_minutes: 15, on_time: true }] };
@@ -60,7 +65,7 @@ async function main() {
   if (output) fs.mkdirSync(output, { recursive: true });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const browser = await chromium.launch({ headless: true, ...(process.env.ANIME_BROWSER_EXECUTABLE ? { executablePath: process.env.ANIME_BROWSER_EXECUTABLE } : {}) });
-  const failures = [], measurements = [], errors = [];
+  const failures = [], measurements = [], templateMeasurements = [], errors = [];
   try {
     for (const embedded of [false, true]) {
       const page = await browser.newPage({ viewport: { width: 1332, height: 900 } });
@@ -135,6 +140,41 @@ async function main() {
       const settingsWidth = await frame.locator('#settings-view').evaluate(el => el.getBoundingClientRect().width);
       await frame.locator('#show-messages').click();
       assert.equal(await frame.locator('#messages-view').evaluate(el => el.getBoundingClientRect().width), settingsWidth);
+      for (const theme of ['dark', 'light']) {
+        await frame.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
+        for (const width of [1440, 1332, 834, 768, 390, 360]) {
+          await page.setViewportSize({ width, height: 900 });
+          for (const expanded of [false, true]) {
+            await frame.locator('.message-template-card').evaluateAll((cards, expanded) => cards.forEach((card, index) => card.open = expanded && index < 2), expanded);
+            const positions = await frame.locator('.message-template-card summary').evaluateAll(summaries => summaries.map(summary => {
+              const row = summary.getBoundingClientRect();
+              const button = summary.querySelector('.reset-template').getBoundingClientRect();
+              return { offset:row.right - button.right, center:button.y + button.height / 2 - row.y - row.height / 2 };
+            }));
+            const offsets = positions.map(value => value.offset);
+            templateMeasurements.push({ embedded, theme, width, expanded, positions });
+            if (Math.max(...offsets) - Math.min(...offsets) > 1 || positions.some(value => Math.abs(value.center) > 1)) failures.push({ label:`message reset alignment: ${theme} ${width} expanded=${expanded}`, positions });
+            if (output && !embedded && width === 1332) await frame.locator('#messages-view').screenshot({ path:path.join(output, `messages-${theme}${expanded ? '-expanded' : ''}.png`) });
+          }
+        }
+      }
+      const firstCard = frame.locator('.message-template-card').first();
+      const secondCard = frame.locator('.message-template-card').nth(1);
+      await firstCard.evaluate(card => card.open = true);
+      await secondCard.evaluate(card => card.open = true);
+      await firstCard.locator('textarea').fill('custom text');
+      await firstCard.locator('.reset-template').click();
+      assert.equal(await firstCard.locator('textarea').inputValue(), templates[0].default);
+      assert.equal(await firstCard.getAttribute('open'), '');
+      assert.equal(await secondCard.getAttribute('open'), '');
+      const editor = firstCard.locator('textarea');
+      await editor.fill('first second');
+      await editor.evaluate(el => { el.focus(); el.setSelectionRange(6, 6); el.dispatchEvent(new Event('select')); });
+      await firstCard.locator('.variable-chip').click();
+      assert.equal(await editor.inputValue(), 'first {title}second');
+      await frame.locator('#save-message-templates').click();
+      await frame.waitForFunction(() => document.querySelector('#save-status').textContent.includes('消息文本已保存'));
+      assert.equal(posts.at(-1).body.message_templates[templates[0].key], 'first {title}second');
       await frame.locator('#show-catalog').click();
       for (const type of ['剧场版', 'OVA', 'TV', '所有类型']) {
         await frame.getByRole('button', { name: '类型', exact: true }).click();
@@ -162,10 +202,10 @@ async function main() {
       await page.close();
     }
     assert.deepEqual(errors, []);
-    if (output) fs.writeFileSync(path.join(output, 'layout-audit.json'), JSON.stringify({ failures, measurements, errors }, null, 2));
+    if (output) fs.writeFileSync(path.join(output, 'layout-audit.json'), JSON.stringify({ failures, measurements, templateMeasurements, errors }, null, 2));
     assert.equal(failures.length, 0, `Layout failures: ${JSON.stringify(failures.slice(0, 3))}`);
     for (const asset of ['style.css', 'bridge.js', 'controls.js', 'app.js']) assert.ok(requests.some(request => request.name === asset && request.version === version), `${asset} must load the current release version`);
-    console.log(`Passed ${measurements.length} layouts plus group selection, upward popup, read/save, refresh, scrolling and view-switch checks.`);
+    console.log(`Passed ${measurements.length} dock layouts, ${templateMeasurements.length} message-editor layouts, reset/insert/save and catalog interaction checks.`);
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

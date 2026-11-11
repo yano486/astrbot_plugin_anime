@@ -29,7 +29,7 @@ class PackageSmokeTests(unittest.TestCase):
         self.assertEqual(re.findall(r'\?v=([\d.]+)', page), [source_version.group(1)] * 4)
         self.assertIn(f'>v{source_version.group(1)}</span>', page)
         self.assertIn('author: !!str 486', metadata)
-        self.assertIn('"0.3.22"', source)
+        self.assertIn('"0.3.23"', source)
         self.assertIn('register("astrbot_plugin_anime", "486"', source)
         self.assertIn("MIT License", (root / "LICENSE").read_text(encoding="utf-8"))
         self.assertTrue((root / "PROJECT_STRUCTURE.md").is_file())

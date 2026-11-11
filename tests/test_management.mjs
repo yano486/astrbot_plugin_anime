@@ -487,9 +487,8 @@ test('catalog fetch status occupies a separate grid row from target controls', (
   assert.match(markup, /<div id="save-status"/);
 });
 
-test('bottom status message spans the dock without taking width from the selector', () => {
-  assert.match(styles, /\.status-inline\{[^}]*grid-column:1\/-1/);
-  assert.doesNotMatch(styles, /\.status-inline\{[^}]*max-width:/);
+test('bottom status message stays compact on the right without taking width from the selector', () => {
+  assert.match(styles, /\.status-inline\{[^}]*justify-self:end;width:fit-content;max-width:min\(440px,85%\)/);
   assert.match(source, /new ResizeObserver\(update\)\.observe\(dock\)/);
 });
 

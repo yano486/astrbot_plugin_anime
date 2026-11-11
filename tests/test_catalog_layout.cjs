@@ -90,11 +90,14 @@ async function main() {
             const label = `${embedded ? 'embedded' : 'remote'} ${theme} ${width} ${status ? 'status' : 'clear'}`;
             measurements.push({ label, ...metrics });
             if (metrics.trigger.width < 200 || metrics.trigger.height > 55 || metrics.overflow || metrics.dock.height > 330 || Math.abs(metrics.dock.bottom - 900) > 1) failures.push({ label, ...metrics });
+            if (status && (metrics.status.width > 441 || metrics.status.width >= metrics.dock.width * 0.9 || Math.abs(metrics.status.right - metrics.save.right) > 1)) failures.push({ label: `${label}: notice must be compact and aligned to the right`, ...metrics });
             if (output && width === 1332 && status.startsWith('设置') && theme === 'dark' && !embedded) await frame.locator('.catalog-command-row').screenshot({ path: path.join(output, 'dock.png') });
           }
         }
       }
       await page.setViewportSize({ width: 1332, height: 900 });
+      await frame.evaluate(() => document.querySelector('#save-status').hidden = true);
+      await frame.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       assert.equal(await frame.locator('.webui-version').textContent(), `v${version}`);
       await frame.getByRole('button', { name: '提醒发送到', exact: true }).click();
       const popup = frame.locator('#target').locator('..').locator('.select-popover');

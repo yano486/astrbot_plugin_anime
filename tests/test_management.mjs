@@ -344,6 +344,27 @@ test('settings page exposes editable text templates and text/card mode', () => {
   assert.match(styles, /\.message-template-card textarea/);
 });
 
+test('card style and image theme save and reload independently from WebUI theme', async () => {
+  let saved;
+  const app = setup(async () => ({}), async (endpoint, values) => {
+    assert.equal(endpoint, 'preferences');
+    saved = values;
+    return {preferences: values};
+  });
+  app.element('#card-style').value = 'poster';
+  app.element('#card-theme').value = 'light';
+  app.document.documentElement.dataset.theme = 'dark';
+  await app.run('savePreferences()');
+  assert.equal(saved.card_style, 'poster');
+  assert.equal(saved.card_theme, 'light');
+  app.element('#card-style').value = '';
+  app.element('#card-theme').value = '';
+  app.run('applyPreferences()');
+  assert.equal(app.element('#card-style').value, 'poster');
+  assert.equal(app.element('#card-theme').value, 'light');
+  assert.equal(app.document.documentElement.dataset.theme, 'dark');
+});
+
 test('message template cards start collapsed and variables are actionable', () => {
   assert.match(source, /<details class="message-template-card">/);
   assert.match(source, /class="variable-chip"/);

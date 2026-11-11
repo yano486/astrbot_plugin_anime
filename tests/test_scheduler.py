@@ -35,6 +35,45 @@ class FakeStore:
 
 
 class SchedulerTests(unittest.TestCase):
+    def test_card_mode_delivers_occurrence_and_lead_label_without_text_message(self):
+        item = AnimeItem(key="card", title="动画", item_type="tv", schedules=[Schedule(2, 22, 0, "22:00", "fixture")])
+        store = FakeStore(item, Subscription("group:card", "card", lead_minutes=15))
+        store.get_preferences = lambda: {"push_mode": "card"}
+        cards, texts = [], []
+
+        async def deliver_text(*args):
+            texts.append(args)
+            return True
+
+        async def deliver_card(*args, **kwargs):
+            cards.append((args, kwargs))
+            return True
+
+        async def run():
+            scheduler = ReminderScheduler(store, deliver_text, deliver_card=deliver_card)
+            now = datetime(2026, 11, 3, 20, 45, tzinfo=ZoneInfo("Asia/Shanghai"))
+            self.assertEqual(await scheduler.check_once(now), 1)
+            self.assertEqual(await scheduler.check_once(now), 0)
+
+        asyncio.run(run())
+        self.assertEqual(texts, [])
+        self.assertEqual(cards[0][0][:2], ("group:card", item))
+        self.assertEqual(cards[0][1]["reminder_label"], "还有 15 分钟开播")
+        self.assertEqual(cards[0][1]["occurrence"].hour, 21)
+
+    def test_card_failure_does_not_mark_reminder_as_sent(self):
+        item = AnimeItem(key="card", title="Test", schedules=[Schedule(2, 22, 0, "22:00", "fixture")])
+        store = FakeStore(item, Subscription("group:card", "card", lead_minutes=0))
+        store.get_preferences = lambda: {"push_mode": "card"}
+
+        async def fail(*args, **kwargs):
+            raise RuntimeError("renderer unavailable")
+
+        with self.assertLogs(scheduler_module.logger, level="ERROR"):
+            count = asyncio.run(ReminderScheduler(store, fail, deliver_card=fail).check_once(datetime(2026, 11, 3, 21, tzinfo=ZoneInfo("Asia/Shanghai"))))
+        self.assertEqual(count, 0)
+        self.assertEqual(store.state["receipts"], [])
+
     def test_scheduler_loop_continues_after_a_cycle_raises(self) -> None:
         async def run():
             item = AnimeItem(key="anime:loop", title="Test")

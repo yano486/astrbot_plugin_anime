@@ -80,6 +80,8 @@
           <div class="preference-field"><span>显示与推送时间</span><select id="display-timezone" aria-label="显示与推送时间"><option value="Asia/Shanghai">北京时间</option><option value="Asia/Tokyo">日本时间</option></select></div>
           <div class="preference-field"><span>是否排除 R18 内容</span><select id="exclude-r18" aria-label="是否排除 R18 内容"><option value="false">否</option><option value="true">是</option></select></div>
           <div class="preference-field"><span>推送方式</span><select id="push-mode" aria-label="推送方式"><option value="text">文字</option><option value="card">卡片</option></select></div>
+          <div class="preference-field"><span>卡片样式</span><select id="card-style" aria-label="卡片样式"><option value="info">A · 信息卡</option><option value="poster">B · 海报编排</option><option value="compact">C · 紧凑排期</option></select></div>
+          <div class="preference-field"><span>卡片配色</span><select id="card-theme" aria-label="卡片配色"><option value="dark">深色</option><option value="light">浅色</option></select></div>
           <button class="button button-accent" id="save-preferences" type="button">保存设置</button>
         </div>
         <small>默认提前 15 分钟提醒 TV / 有时间排期的 WEB 动画。Bangumi 含有 R18 元素时，勾选后会排除这些内容；日本 23:00 与北京时间 22:00 是同一时刻。</small>
@@ -92,7 +94,7 @@
           <div class="preference-field"><span>每周一推送</span><select id="weekly-table-enabled" aria-label="每周订阅番表图片推送"><option value="false">否</option><option value="true">是</option></select></div>
           <div class="preference-field"><span>每周一时间</span><input id="weekly-table-time" type="text" value="00:00" inputmode="numeric" maxlength="5" pattern="(?:[01]\d|2[0-3]):[0-5]\d" aria-label="每周订阅番表推送时间"></div>
         </div>
-        <small>默认关闭，默认时间为 00:00；时间按上方选择的显示与推送时区计算。图片采用独立的固定样式，不跟随 WebUI 亮色或暗色切换。</small>
+        <small>默认关闭，默认时间为 00:00；时间按上方选择的显示与推送时区计算。所有图片采用上方选择的卡片样式和配色，不跟随 WebUI 亮色或暗色切换。</small>
       </section>
       <section class="test-push-panel">
         <div class="test-push-heading"><div><h2>推送测试</h2><p>先选择目标；可测试文字消息、开播提醒图片卡片或单部动画更新卡片。</p></div></div>
@@ -107,7 +109,7 @@
       <section class="settings-heading"><div><h2>消息文本</h2><p>可分别修改命令回复和自动提醒文本；变量会在发送时替换为实际内容。</p></div><button class="button button-accent" id="save-message-templates" type="button">保存消息文本</button></section>
       <section class="message-template-panel">
         <div id="message-templates" class="message-template-list"></div>
-        <small>点击模板标题展开编辑。同一行默认只展开一个；按住 Shift 点击可同时展开。有选区时替换选区，有光标时插入光标处，否则追加到文本末尾。卡片通道暂时保持现有样式。</small>
+        <small>点击模板标题独立展开编辑。变量按钮支持悬停查看说明；有选区时替换选区，有光标时插入光标处，否则追加到文本末尾。图片排版在设置中选择卡片样式。</small>
       </section>
     </section>
 

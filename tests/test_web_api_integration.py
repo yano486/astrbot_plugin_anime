@@ -10,6 +10,19 @@ from astrbot_plugin_anime.web.api import AnimeWebAPI
 
 
 class WebApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_saved_card_layout_survives_reload_and_text_only_edits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.json"
+            plugin = type("Plugin", (), {"store": JsonStore(state_path)})()
+            api = AnimeWebAPI(plugin)
+            status, _ = await api.execute("preferences", "POST", {}, {"card_style": "compact", "card_theme": "light"})
+            self.assertEqual(status, 200)
+            plugin.store = JsonStore(state_path)
+            status, result = await api.execute("preferences", "POST", {}, {"message_templates": {"help_english": "updated"}})
+            self.assertEqual(status, 200)
+            self.assertEqual(result["preferences"]["card_style"], "compact")
+            self.assertEqual(result["preferences"]["card_theme"], "light")
+
     async def test_saving_message_templates_preserves_other_preferences(self):
         with tempfile.TemporaryDirectory() as directory:
             store = JsonStore(Path(directory) / "state.json")

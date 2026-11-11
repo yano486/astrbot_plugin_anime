@@ -26,6 +26,28 @@ class Store:
 
 
 class MovieReminderTests(unittest.TestCase):
+    def test_movie_card_uses_date_override_without_tv_lead_time(self):
+        store = Store()
+        store.release_override = "2026-11-05"
+        store.get_preferences = lambda: {"push_mode": "card", "display_timezone": "Asia/Shanghai"}
+        cards = []
+
+        async def text(*args):
+            self.fail("card mode must not send a text message")
+
+        async def card(target, item, mode, **options):
+            cards.append((item.release_date, options["reminder_label"]))
+            return True
+
+        async def run():
+            scheduler = ReminderScheduler(store, text, deliver_card=card)
+            self.assertEqual(await scheduler.check_once(datetime(2026, 11, 4, tzinfo=ZoneInfo("Asia/Shanghai"))), 0)
+            self.assertEqual(await scheduler.check_once(datetime(2026, 11, 5, tzinfo=ZoneInfo("Asia/Shanghai"))), 1)
+            self.assertEqual(await scheduler.check_once(datetime(2026, 11, 5, tzinfo=ZoneInfo("Asia/Shanghai"))), 0)
+
+        asyncio.run(run())
+        self.assertEqual(cards, [("2026-11-05", "上映日期提醒")])
+
     def test_movie_release_date_does_not_use_tv_advance_minutes(self):
         sent = []
 

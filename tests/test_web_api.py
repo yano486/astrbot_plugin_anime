@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from astrbot_plugin_anime.web.api import validate_subscriptions
+from astrbot_plugin_anime.web.api import validate_preferences, validate_subscriptions
 
 
 class WebValidationTests(unittest.TestCase):
@@ -40,7 +40,7 @@ class WebValidationTests(unittest.TestCase):
 
         self.assertEqual(
             validate_preferences({"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo"}),
-            {"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo", "exclude_r18": False, "push_mode": "text", "daily_table_enabled": False, "daily_table_time": "00:00", "weekly_table_enabled": False, "weekly_table_time": "00:00", "message_templates": {}},
+            {"schedule_source": "bgmlist", "display_timezone": "Asia/Tokyo", "exclude_r18": False, "push_mode": "text", "card_style": "info", "card_theme": "dark", "daily_table_enabled": False, "daily_table_time": "00:00", "weekly_table_enabled": False, "weekly_table_time": "00:00", "message_templates": {}},
         )
         with self.assertRaisesRegex(ValueError, "schedule_source"):
             validate_preferences({"schedule_source": "unknown"})
@@ -52,7 +52,7 @@ class WebValidationTests(unittest.TestCase):
 
         self.assertEqual(
             validate_preferences({"exclude_r18": True}),
-            {"schedule_source": "earliest", "display_timezone": "Asia/Shanghai", "exclude_r18": True, "push_mode": "text", "daily_table_enabled": False, "daily_table_time": "00:00", "weekly_table_enabled": False, "weekly_table_time": "00:00", "message_templates": {}},
+            {"schedule_source": "earliest", "display_timezone": "Asia/Shanghai", "exclude_r18": True, "push_mode": "text", "card_style": "info", "card_theme": "dark", "daily_table_enabled": False, "daily_table_time": "00:00", "weekly_table_enabled": False, "weekly_table_time": "00:00", "message_templates": {}},
         )
         with self.assertRaisesRegex(ValueError, "exclude_r18"):
             validate_preferences({"exclude_r18": "true"})
@@ -65,6 +65,16 @@ class WebValidationTests(unittest.TestCase):
         self.assertEqual(values["daily_table_time"], "00:00")
         self.assertFalse(values["weekly_table_enabled"])
         self.assertEqual(values["weekly_table_time"], "00:00")
+
+    def test_card_layout_and_independent_theme_are_validated(self) -> None:
+        for style in ("info", "poster", "compact"):
+            values = validate_preferences({"card_style": style, "card_theme": "light"})
+            self.assertEqual(values["card_style"], style)
+            self.assertEqual(values["card_theme"], "light")
+        for field in ("card_style", "card_theme"):
+            for value in ("unknown", [], None):
+                with self.subTest(field=field, value=value), self.assertRaisesRegex(ValueError, field):
+                    validate_preferences({field: value})
 
     def test_subscription_table_preferences_validate_switches_and_times(self) -> None:
         from astrbot_plugin_anime.web.api import validate_preferences

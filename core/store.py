@@ -14,6 +14,8 @@ DEFAULT_PREFERENCES = {
     "display_timezone": "Asia/Shanghai",
     "exclude_r18": False,
     "push_mode": "text",
+    "card_style": "info",
+    "card_theme": "dark",
     "daily_table_enabled": False,
     "daily_table_time": "00:00",
     "weekly_table_enabled": False,

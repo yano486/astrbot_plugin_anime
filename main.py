@@ -17,6 +17,7 @@ from .core.diagnostics import configure_plugin_logging, get_plugin_logger
 from .services.scheduler import ReminderScheduler
 from .services.table_scheduler import SubscriptionTableScheduler
 from .services.refresh import RefreshService
+from .services.covers import CoverCache
 from .core.store import JsonStore
 from .web.api import AnimeWebAPI
 from .rendering.push_tables import Airing, airings_between, cleanup_generated_tables, render_airings_image, render_weekly_image, render_notification_card, render_subscription_table_image, upcoming_movies
@@ -27,7 +28,7 @@ from .core.time_utils import BJ, JST
 plugin_logger = get_plugin_logger()
 
 
-PLUGIN_VERSION = "0.3.16"
+PLUGIN_VERSION = "0.3.17"
 
 
 @register("astrbot_plugin_anime", "486", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)
@@ -43,6 +44,7 @@ class AnimePlugin(Star):
         self.data_dir = data_dir
         self.store = JsonStore(data_dir / "anime_state.json")
         self.session: aiohttp.ClientSession | None = None
+        self.cover_cache: CoverCache | None = None
         self.refresh_service: RefreshService | None = None
         self.scheduler: ReminderScheduler | None = None
         self.table_scheduler: SubscriptionTableScheduler | None = None
@@ -77,9 +79,10 @@ class AnimePlugin(Star):
                 self.store,
                 bangumi_token=str(self.config.get("bangumi_api_token", "")),
             )
+        self.cover_cache = CoverCache(self.session, self.data_dir / "covers", self.refresh_service.bangumi.proxy_url)
         self.web_api.register()
         await self._start_remote_webui()
-        self.scheduler = ReminderScheduler(self.store, self._deliver)
+        self.scheduler = ReminderScheduler(self.store, self._deliver, deliver_card=self._deliver_card)
         await self.scheduler.start()
         self.table_scheduler = SubscriptionTableScheduler(self.store, self._deliver_subscription_table)
         await self.table_scheduler.start()
@@ -207,7 +210,16 @@ class AnimePlugin(Star):
             raise RuntimeError("AstrBot reported that the target message was not sent")
         return True
 
-    async def _deliver_card(self, target_id: str, item, mode: str) -> bool:
+    async def _image_options(self, items) -> dict[str, Any]:
+        preferences = self.store.get_preferences()
+        cache = getattr(self, "cover_cache", None)
+        return {
+            "card_style": preferences.get("card_style", "info"),
+            "card_theme": preferences.get("card_theme", "dark"),
+            "covers": await cache.prepare(items) if cache is not None else {},
+        }
+
+    async def _deliver_card(self, target_id: str, item, mode: str, *, occurrence=None, reminder_label=None) -> bool:
         from uuid import uuid4
 
         self._cleanup_generated_tables()
@@ -220,6 +232,9 @@ class AnimePlugin(Star):
                 mode,
                 path,
                 preferences["display_timezone"],
+                **await self._image_options([item]),
+                occurrence=occurrence,
+                reminder_label=reminder_label,
             )
             chain = MessageChain().file_image(str(path))
             result = await self.context.send_message(target_id, chain)
@@ -236,7 +251,7 @@ class AnimePlugin(Star):
         path = self.data_dir / "push_tables" / f"{uuid4().hex}.png"
         title = "每日订阅番表" if kind == "daily" else "本周订阅番表"
         try:
-            await asyncio.to_thread(render_subscription_table_image, title, rows, path, display_timezone)
+            await asyncio.to_thread(render_subscription_table_image, title, rows, path, display_timezone, kind=kind, **await self._image_options([row.item for row in rows]))
             chain = MessageChain().file_image(str(path))
             result = await self.context.send_message(target_id, chain)
             if result is False:
@@ -285,7 +300,7 @@ class AnimePlugin(Star):
         try:
             preferences = self.store.get_preferences()
             renderer = render_weekly_image if title == "本周动画播放表" else render_airings_image
-            await asyncio.to_thread(renderer, title, rows, path, preferences["display_timezone"])
+            await asyncio.to_thread(renderer, title, rows, path, preferences["display_timezone"], **await self._image_options([row.item for row in rows]))
         except Exception as exc:
             logger.error(f"[anime] 图表生成失败: {exc}")
             return event.plain_result(self._reply("image_error", {"error": str(exc)}))

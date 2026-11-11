@@ -70,7 +70,8 @@ class CommandAliasTests(unittest.TestCase):
             plugin.store = Store()
             generated = []
 
-            def render(title, rows, path, timezone):
+            def render(title, rows, path, timezone, **options):
+                self.assertEqual(options["card_style"], "info")
                 Path(path).write_bytes(b"new")
                 generated.append(Path(path))
 
@@ -96,7 +97,7 @@ class CommandAliasTests(unittest.TestCase):
         class Store:
             @staticmethod
             def get_preferences():
-                return {"display_timezone": "Asia/Shanghai"}
+                return {"display_timezone": "Asia/Shanghai", "card_style": "poster", "card_theme": "light"}
 
         class Context:
             def __init__(self):
@@ -113,7 +114,10 @@ class CommandAliasTests(unittest.TestCase):
             plugin.context = Context()
             generated = []
 
-            def render(title, rows, path, timezone):
+            def render(title, rows, path, timezone, **options):
+                self.assertEqual(options["kind"], "daily")
+                self.assertEqual(options["card_style"], "poster")
+                self.assertEqual(options["card_theme"], "light")
                 Path(path).parent.mkdir(parents=True, exist_ok=True)
                 Path(path).write_bytes(b"table")
                 generated.append((title, timezone, Path(path)))

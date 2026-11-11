@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from datetime import date, datetime, time, timedelta
 from typing import Any, Awaitable, Callable
 
@@ -14,9 +15,10 @@ logger = get_plugin_logger()
 
 
 class ReminderScheduler:
-    def __init__(self, store: Any, deliver: Callable[[str, str], Awaitable[bool]], interval: float = 30.0):
+    def __init__(self, store: Any, deliver: Callable[[str, str], Awaitable[bool]], interval: float = 30.0, *, deliver_card: Callable[..., Awaitable[bool]] | None = None):
         self.store = store
         self.deliver = deliver
+        self.deliver_card = deliver_card
         self.interval = interval
         self._task: asyncio.Task | None = None
         self._stopped = asyncio.Event()
@@ -94,18 +96,21 @@ class ReminderScheduler:
                     key = f"{sub.target_id}|{item.key}|{occurrence.isoformat()}|{kind}"
                     if self.store.has_receipt(key) or not (due_at <= now < due_at + grace):
                         continue
-                    message = self._message(
-                        item,
-                        schedule,
-                        kind,
-                        occurrence,
-                        movie_date_only,
-                        preferences.get("display_timezone", "Asia/Shanghai"),
-                        preferences.get("message_templates", {}),
-                    )
                     delivery_exception = False
                     try:
-                        success = await self.deliver(sub.target_id, message)
+                        if preferences.get("push_mode") == "card":
+                            if self.deliver_card is None:
+                                raise RuntimeError("card delivery is not configured")
+                            card_item = replace(item, release_date=release_value) if item.item_type in ("movie", "ova") else replace(item, schedules=[schedule])
+                            label = "上映日期提醒" if item.item_type in ("movie", "ova") else f"还有 {sub.lead_minutes} 分钟开播" if kind == "lead" else "按排期现在开播"
+                            success = await self.deliver_card(sub.target_id, card_item, "reminder", occurrence=occurrence, reminder_label=label)
+                        else:
+                            message = self._message(
+                                item, schedule, kind, occurrence, movie_date_only,
+                                preferences.get("display_timezone", "Asia/Shanghai"),
+                                preferences.get("message_templates", {}),
+                            )
+                            success = await self.deliver(sub.target_id, message)
                     except Exception:
                         delivery_exception = True
                         logger.exception(

@@ -33,6 +33,8 @@ def validate_preferences(payload: Any) -> dict[str, Any]:
         "display_timezone": payload.get("display_timezone", "Asia/Shanghai"),
         "exclude_r18": payload.get("exclude_r18", False),
         "push_mode": payload.get("push_mode", "text"),
+        "card_style": payload.get("card_style", "info"),
+        "card_theme": payload.get("card_theme", "dark"),
         "daily_table_enabled": payload.get("daily_table_enabled", False),
         "daily_table_time": payload.get("daily_table_time", "00:00"),
         "weekly_table_enabled": payload.get("weekly_table_enabled", False),
@@ -47,6 +49,9 @@ def validate_preferences(payload: Any) -> dict[str, Any]:
         raise ValueError("exclude_r18 must be a boolean")
     if values["push_mode"] not in {"text", "card"}:
         raise ValueError("push_mode must be text or card")
+    for key, choices in (("card_style", {"info", "poster", "compact"}), ("card_theme", {"dark", "light"})):
+        if not isinstance(values[key], str) or values[key] not in choices:
+            raise ValueError(f"{key} must be one of {', '.join(sorted(choices))}")
     for key in ("daily_table_enabled", "weekly_table_enabled"):
         if not isinstance(values[key], bool):
             raise ValueError(f"{key} must be a boolean")

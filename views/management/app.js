@@ -554,6 +554,8 @@ function applyPreferences() {
   $("#display-timezone").value = state.preferences.display_timezone;
   $("#exclude-r18").value = String(Boolean(state.preferences.exclude_r18));
   $("#push-mode").value = state.preferences.push_mode || "text";
+  $("#card-style").value = state.preferences.card_style || "info";
+  $("#card-theme").value = state.preferences.card_theme || "dark";
   $("#daily-table-enabled").value = String(Boolean(state.preferences.daily_table_enabled));
   $("#daily-table-time").value = state.preferences.daily_table_time || "00:00";
   $("#weekly-table-enabled").value = String(Boolean(state.preferences.weekly_table_enabled));
@@ -563,6 +565,8 @@ function applyPreferences() {
   window.AnimeControls?.refresh($("#display-timezone"));
   window.AnimeControls?.refresh($("#exclude-r18"));
   window.AnimeControls?.refresh($("#push-mode"));
+  window.AnimeControls?.refresh($("#card-style"));
+  window.AnimeControls?.refresh($("#card-theme"));
   window.AnimeControls?.refresh($("#daily-table-enabled"));
   window.AnimeControls?.refresh($("#weekly-table-enabled"));
   render();
@@ -641,6 +645,8 @@ async function savePreferences() {
     display_timezone: $("#display-timezone").value,
     exclude_r18: $("#exclude-r18").value === "true",
     push_mode: $("#push-mode").value,
+    card_style: $("#card-style").value,
+    card_theme: $("#card-theme").value,
     daily_table_enabled: $("#daily-table-enabled").value === "true",
     daily_table_time: $("#daily-table-time").value.trim(),
     weekly_table_enabled: $("#weekly-table-enabled").value === "true",

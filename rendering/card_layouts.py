@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from math import ceil
 from zoneinfo import ZoneInfo
 
 from ..core.time_utils import BJ, JST, schedule_time_in_timezone
-from .card_canvas import CardCanvas, text_height
+from .card_canvas import CardCanvas, font, text_height
 from .swimlane import render_swimlane
 
 
@@ -55,21 +56,38 @@ def render_notice(item, mode, output, timezone="Asia/Shanghai", *, card_style="i
         primary, secondary = "时间待定", ""
     cover_width = {"info": 230, "poster": 370, "compact": 148}[card_style]
     text_x = cover_width + 88
-    text_width = 1200 - text_x - 60
-    name_height = text_height(item_title(item), text_width, 38, True)
     original = item.title if item.title != item_title(item) else ""
-    original_height = text_height(original, text_width, 18) if original else 0
-    height = max(480 if card_style == "info" else 620 if card_style == "poster" else 390, 300 + name_height + original_height + text_height(item_tags(item), text_width, 18))
-    canvas = CardCanvas(1200, height, card_theme)
-    canvas.panel((28, 28, 1172, height - 28))
-    canvas.cover(covers.get(item.key), (48, 48, cover_width, height - 96))
-    bottom = canvas.text(text_x, 56, label, 22, "accent", True, width=text_width)
-    bottom = canvas.text(text_x, bottom + 16, item_title(item), 38, bold=True, width=text_width)
+    blocks = [
+        (label, 22, "accent", True, 0),
+        (item_title(item), 38, "ink", True, 16),
+    ]
     if original:
-        bottom = canvas.text(text_x, bottom + 4, original, 18, "muted", width=text_width)
-    bottom = canvas.text(text_x, bottom + 16, primary, 26, "accent", True, width=text_width)
+        blocks.append((original, 18, "muted", False, 4))
+    blocks.append((primary, 26, "accent", True, 16))
     if secondary:
-        bottom = canvas.text(text_x, bottom + 6, secondary, 21, "muted", width=text_width)
-    canvas.text(text_x, bottom + 18, item_tags(item), 18, "accent", width=text_width)
-    canvas.text(text_x, height - 78, "按排期提醒 · 临时改期以官方信息为准", 16, "muted", width=text_width)
+        blocks.append((secondary, 21, "muted", False, 6))
+    blocks.append((item_tags(item), 18, "accent", False, 18))
+    footer = "按排期提醒 · 临时改期以官方信息为准"
+    natural_width = max(
+        font(size, bold).getlength(line)
+        for text, size, _, bold, _ in [*blocks, (footer, 16, "muted", False, 0)]
+        for line in str(text).split("\n")
+    )
+    text_width = min(1200 - text_x - 60, max(400, ceil(natural_width)))
+    width = text_x + text_width + 60
+    # Use the same wrapped text metrics for sizing and drawing every block.
+    bottom = 56
+    positioned = []
+    for text, size, color, bold, gap in blocks:
+        bottom += gap
+        positioned.append((text, size, color, bold, bottom))
+        bottom += text_height(text, text_width, size, bold)
+    footer_height = text_height(footer, text_width, 16)
+    height = max(bottom + 24 + footer_height + 48, 96 + ceil(cover_width * 1.35))
+    canvas = CardCanvas(width, height, card_theme)
+    canvas.panel((28, 28, width - 28, height - 28))
+    canvas.cover(covers.get(item.key), (48, 48, cover_width, height - 96))
+    for text, size, color, bold, top in positioned:
+        canvas.text(text_x, top, text, size, color, bold, width=text_width)
+    canvas.text(text_x, height - 48 - footer_height, footer, 16, "muted", width=text_width)
     return canvas.save(output)

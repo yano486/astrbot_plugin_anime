@@ -162,8 +162,9 @@ class BangumiAdapter(SourceAdapter):
             statuses[period] = result.error if result.status == "error" else result.status
             if result.status == "ok":
                 records.extend(result.records)
-        if not records and any(value not in {"ok", "empty"} for value in statuses.values()):
-            return SourceResult(self.name, status="error", error=f"monthly query failures: {statuses}", source_url=self.base_url)
+        failures = {period: error for period, error in statuses.items() if error not in {"ok", "empty"}}
+        if failures:
+            return SourceResult(self.name, records, self.base_url, "error", f"monthly query failures: {failures}")
         return SourceResult(self.name, records, self.base_url, "ok" if records else "empty")
 
     async def fetch_movies(self, today: date) -> SourceResult:

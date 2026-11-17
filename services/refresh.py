@@ -32,7 +32,8 @@ class RefreshService:
         preferences = self.store.get_preferences() if hasattr(self.store, "get_preferences") else {}
         self.bangumi.exclude_r18 = bool(preferences.get("exclude_r18", False))
         results: list[SourceResult] = await asyncio.gather(*(adapter.fetch(season) for adapter in self.adapters))
-        records = [record for result in results if result.status == "ok" for record in result.records]
+        # Failed monthly batches may still contain successfully fetched records.
+        records = [record for result in results for record in result.records]
         schedule_source = preferences.get("schedule_source", "earliest")
         items = merge_records(records, schedule_source)
         status = {
@@ -46,7 +47,9 @@ class RefreshService:
             for result in results
         }
         for name, value in status.items():
-            if value["status"] == "error":
+            if value["status"] == "error" and value["count"]:
+                logger.warning("[anime] Source %s incomplete: %s; keeping %s fetched records", name, value["error"], value["count"])
+            elif value["status"] == "error":
                 logger.error("[anime] 来源 %s 获取失败：%s", name, value["error"] or "未知错误")
             else:
                 logger.info("[anime] 来源 %s 获取完成：%s 条", name, value["count"])
@@ -56,9 +59,13 @@ class RefreshService:
             new_by_key = {item.key: item for item in items}
             retained = []
             for old in previous:
-                if old.season != season or not failed_sources.intersection(old.sources):
+                if old.season != season:
                     continue
                 current = new_by_key.get(old.key)
+                if current is not None and not current.cover_url:
+                    current.cover_url = old.cover_url
+                if not failed_sources.intersection(old.sources):
+                    continue
                 if current is None:
                     old.data_status = "partial" if old.data_status != "conflict" else old.data_status
                     retained.append(old)

@@ -117,7 +117,11 @@ class PushTableTests(unittest.TestCase):
                             self.assertFalse(any(source.lower() in "\n".join(text_drawn).lower() for source in self.item.sources))
                             self.assertIn("测试动画", "\n".join(text_drawn))
                             with Image.open(path) as image:
-                                self.assertEqual(image.width, 1200 if renderer == render_notification_card else 720)
+                                if renderer == render_notification_card:
+                                    self.assertLessEqual(image.width, 1200)
+                                    self.assertGreater(image.width, 500)
+                                else:
+                                    self.assertEqual(image.width, 720)
                                 self.assertIn((217, 78, 34), [rgb for _, rgb in image.getcolors(image.width * image.height)])
 
     def test_invalid_layout_does_not_silently_render_another_style(self) -> None:

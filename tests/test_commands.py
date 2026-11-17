@@ -35,7 +35,7 @@ class CommandAliasTests(unittest.TestCase):
                 return text
 
         async def collect(plugin, event):
-            return [value async for value in plugin.anime_command(event)]
+            return [value async for value in plugin._run_anime_command(event)]
 
         with tempfile.TemporaryDirectory() as directory:
             store = JsonStore(Path(directory) / "state.json")
@@ -91,7 +91,7 @@ class CommandAliasTests(unittest.TestCase):
 
         plugin = AnimePlugin.__new__(AnimePlugin)
         plugin.store = Store()
-        english = asyncio.run(collect(plugin.anime_command(Event(), "help")))
+        english = asyncio.run(collect(plugin.english_help(Event())))
         chinese = asyncio.run(collect(plugin.help(Event())))
         self.assertEqual(english, ["EN HELP"])
         self.assertEqual(chinese, ["CN HELP"])

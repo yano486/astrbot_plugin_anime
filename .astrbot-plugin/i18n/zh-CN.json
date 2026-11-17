@@ -1,11 +1,19 @@
 {
   "metadata": {
-    "name": "季度动画订阅与提醒"
+    "name": "季度动画订阅与提醒",
+    "display_name": "动画季度订阅",
+    "desc": "按季度查看日本动画，在管理页选择订阅，并按排期发送文字或卡片提醒；支持今日、本周番组和自定义回复。"
   },
   "views": {
     "management": {
       "title": "动画订阅",
       "description": "浏览季度动画、管理订阅和开播提醒。"
+    }
+  },
+  "pages": {
+    "management": {
+      "title": "动画订阅",
+      "description": "查看季度番组，选择订阅并设置开播提醒。"
     }
   }
 }

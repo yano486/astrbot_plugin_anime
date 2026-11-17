@@ -1,7 +1,7 @@
 name: astrbot_plugin_anime
 display_name: 动画季度订阅
-desc: Seasonal Japanese anime catalog with WebUI subscriptions, customizable command replies, and text/card reminder settings.
-version: 0.3.23
+desc: 按季度查看日本动画，在管理页选择订阅，并按排期发送文字或卡片提醒；支持今日、本周番组和自定义回复。
+version: 0.3.24
 author: !!str 486
 repo: https://github.com/yano486/astrbot_plugin_anime
 category: entertainment
@@ -11,3 +11,18 @@ tags:
   - 动画
   - 番剧
   - 订阅
+help: |
+  /anime help：英文帮助
+  /anime帮助（或 /anime 帮助）：中文帮助
+  /anime push 或 /anime推送：今日订阅番组
+  /anime week 或 /anime本周：本周订阅番组
+  /anime ova 或 /anime剧场版：已订阅的剧场版与 OVA 上映日期
+  /anime sub 或 /anime订阅：开启自动提醒
+  /anime sub off 或 /anime订阅 关闭：关闭自动提醒
+  /anime bind 或 /anime绑定：添加当前会话为推送目标
+  /anime unbind 或 /anime解绑：移除当前推送目标及其订阅
+  /anime list 或 /anime列表：查看当前会话的订阅
+  /anime refresh 或 /anime刷新：重新获取当季番组，仅限管理员
+
+  中文命令也可在 anime 后加空格，例如 /anime 推送、/anime 绑定。
+  添加推送目标后，在插件管理页勾选作品并保存订阅；消息文本可在管理页单独修改。

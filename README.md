@@ -1,35 +1,72 @@
-# astrbot_plugin_anime
+# 动画季度订阅
 
-AstrBot plugin for seasonal Japanese anime schedules, WebUI subscriptions, and reminder delivery.
+在 AstrBot 中查看日本动画排期，选择想追的作品，并在开播前收到提醒。支持群聊和私聊，每个会话可以分别订阅；提醒可选文字或图片卡片。
 
-## Commands
+## 开始使用
 
-- `/anime help` - English help text.
-- `/anime帮助` - Chinese help text.
-- `/anime push` / `/anime推送` - Send today's schedule for this conversation's enabled anime subscriptions.
-- `/anime week` / `/anime本周` - Send this week's schedule for this conversation's enabled anime subscriptions.
-- `/anime ova` / `/anime剧场版` - Send selected movie and OVA release dates.
-- `/anime sub` / `/anime订阅` - Enable automatic reminders for the current conversation.
-- `/anime绑定`, `/anime解绑`, `/anime列表`, `/anime刷新` - Manage targets and subscriptions.
+1. 在 AstrBot 插件市场安装，或通过仓库地址安装本插件。
+2. 在需要接收提醒的群聊或私聊中发送 `/anime绑定`，也可以使用 `/anime bind`。
+3. 打开插件详情页中的「动画订阅」，选择刚绑定的会话，筛选作品，勾选后保存订阅。
+4. 在「设置」中选择推送方式、卡片样式和显示时区。可以先发送一条测试消息，确认目标会话能收到提醒。
 
-## WebUI
+保存并启用订阅后，会话会自动加入推送白名单。TV 和有明确排期的 WEB 动画默认提前 15 分钟提醒；剧场版与 OVA 按上映日期提醒，不套用 TV 的提前分钟数。
 
-Open the plugin WebUI to manage targets, schedules, timezones, source preferences, and message templates. Select text or card reminders in Settings. Single-anime cards support three layouts (Info, Poster, Compact). Daily/weekly tables use weekday swimlanes with wrapping cover cards. Table width adapts to the busiest day, from one to five columns, so small subscriptions produce narrower images. All images use an independent dark/light palette and do not display schedule-source names.
+## 命令对照
 
-Single-anime reminder cards also adapt their width and height to the measured text, up to a 1200-pixel width. Long titles wrap without overlapping the footer; short messages keep only the space needed for the text and portrait cover.
+| 用途 | 英文命令 | 中文命令 |
+| --- | --- | --- |
+| 查看英文帮助 | `/anime help` | — |
+| 查看中文帮助 | — | `/anime帮助` |
+| 今日订阅番组 | `/anime push` | `/anime推送` |
+| 本周订阅番组 | `/anime week` | `/anime本周` |
+| 已订阅的剧场版与 OVA 上映日期 | `/anime ova` | `/anime剧场版` |
+| 开启自动提醒 | `/anime sub` | `/anime订阅` |
+| 关闭自动提醒 | `/anime sub off` | `/anime订阅 关闭` |
+| 添加当前会话为推送目标 | `/anime bind` | `/anime绑定` |
+| 移除当前推送目标及其订阅 | `/anime unbind` | `/anime解绑` |
+| 查看当前会话的订阅 | `/anime list` | `/anime列表` |
+| 重新获取当季番组，仅限管理员 | `/anime refresh` | `/anime刷新` |
 
-Image pushes and card-test choices use only the selected conversation's saved, enabled subscriptions. Inactive targets receive a subscription notice; active targets without selected anime receive an empty-selection notice. The full catalog remains available for choosing new subscriptions. Both notices can be edited in Message Text.
+中文命令也支持在 `anime` 后加空格，例如 `/anime 帮助`、`/anime 推送`、`/anime 绑定`。直接发送 `/anime` 可查看用法。
 
-Images render locally with Pillow. Covers are cached for 30 days; unavailable covers use a visible placeholder. Install Noto CJK if the host has no Chinese fonts.
+## 管理订阅与提醒
 
-If a Bangumi monthly request fails, the source reports the affected months while still using successful batches. Refreshes retain existing entries from failed sources and never replace a known cover URL with an empty value.
+### 选择作品
 
-Command replies and reminder text can be edited independently. `/anime help` and `/anime帮助` intentionally use separate templates. Templates support variables such as `{title}`, `{beijing_time}`, `{japan_time}`, `{display_time}`, `{source}`, `{schedule_note}`, `{release_date}`, `{item_type}`, and `{count}`. The WebUI lists the variables valid for each template.
+管理页支持按地区、类型、季度、改编类型、来源和星期筛选，也可以搜索标题或别名。每个推送目标的订阅单独保存；切换目标后，请先读取该目标的订阅再修改。
 
-## Layout
+今日、本周番组和图片测试只使用当前目标已保存且启用的订阅，不会把整个片单都发出去。尚未开启订阅或没有勾选作品时，会发送相应提示；提示文字可以在「消息文本」中修改。
 
-See `PROJECT_STRUCTURE.md` for the repository map and module responsibilities.
+### 排期与时区
 
-## License
+排期由 Bangumi、bgmlist 和 YUC 提供。多个来源的播出时间不一致时，默认采用最早时间，也可以在设置中指定来源。Bangumi 当前不提供具体播出时刻，单独选择它时，缺少时刻的作品会暂停时间提醒。
 
-MIT License. See `LICENSE`.
+支持北京时间和日本时间，跨日排期会换算到对应日期。排期只代表来源中的记录，不保证视频平台在同一时刻上线；临时改期请以官方信息为准。
+
+### 图片卡片与番组表
+
+单部动画的提醒支持「信息卡」「海报编排」「紧凑排期」三种样式，深浅配色独立于管理页主题。卡片根据文字实际宽度和换行结果调整尺寸，最大宽度为 1200 像素；短标题会收紧空白，长标题会自动换行，并为封面和底部说明留出空间。
+
+每日、每周番组表按星期分行，封面小卡横向排列，超过五列自动换行。图片宽度随同一天的作品数量调整，订阅较少时不会生成很宽的空表。每日推送和每周一推送分别设置，默认关闭，默认时间均为所选时区的 00:00。
+
+封面在本地缓存 30 天。来源缺图或下载失败时会显示「暂无封面」。Bangumi 部分月份获取失败时，插件会报告失败月份、继续使用成功批次，并保留失败来源已有的记录；新的空封面字段不会覆盖已知封面。
+
+### 修改消息文本
+
+命令回复和自动提醒可以分别编辑。英文帮助与中文帮助使用独立模板，修改一项不会覆盖另一项。模板中的变量会在发送时换成实际内容，例如 `{title}`、`{beijing_time}`、`{japan_time}`、`{display_time}`、`{release_date}` 和 `{count}`；每个模板可用的变量及说明都列在编辑区中。
+
+升级时，只会替换仍与旧默认值完全一致的帮助文本；自行编辑的内容会保留。
+
+## 运行与访问
+
+插件通过 OneBot v11 接入 QQ，支持 NapCat。图片使用 Pillow 在本地生成；如果提示找不到中文字体，请安装 Noto CJK 或文泉驿字体。
+
+管理页可以从 AstrBot 插件详情打开。也可以在插件配置中启用独立 WebUI，再按设备地址和所设端口访问；默认端口为 `1876`。登录密码可留空或设为 1～8 位数字。未设密码时，能访问该端口的设备都可管理订阅，请仅在受信任的局域网中使用。
+
+## 开发说明
+
+目录职责、测试命令和页面布局检查方法见 [项目结构](PROJECT_STRUCTURE.md)。
+
+## 许可
+
+采用 MIT 许可证，详见 [LICENSE](LICENSE)。

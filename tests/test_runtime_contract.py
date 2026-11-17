@@ -60,7 +60,7 @@ class RuntimeContractTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as directory:
             plugin = object.__new__(AnimePlugin)
             plugin.store = JsonStore(Path(directory) / "state.json")
-            replies = [value async for value in plugin.anime_command(Event(), "sub")]
+            replies = [value async for value in plugin.subscribe(Event())]
             target = plugin.store.state["targets"][Event.unified_msg_origin]
             self.assertTrue(target["whitelisted"])
             self.assertTrue(target["subscribed"])

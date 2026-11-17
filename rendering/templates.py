@@ -58,12 +58,19 @@ TEMPLATE_DEFINITIONS: dict[str, dict[str, Any]] = {
     "image_error": {"label": "\u56fe\u7247\u751f\u6210\u5931\u8d25", "description": "\u56fe\u7247\u8868\u751f\u6210\u5931\u8d25\u65f6\u7684\u56de\u590d", "variables": ("error",)},
 }
 
+_PREVIOUS_HELP_TEMPLATES = {
+    "help_english": "Commands: /anime help, /anime push (today), /anime week (this week), /anime ova (selected movies/OVA), /anime sub (enable reminders).\nChinese suffixes are also supported: \u63a8\u9001\u3001\u672c\u5468\u3001\u5267\u573a\u7248\u3001\u8ba2\u9605\u3002\n/anime\u7ed1\u5b9a binds the current conversation, /anime\u89e3\u7ed1 removes it, /anime\u5217\u8868 shows subscriptions, and /anime\u5237\u65b0 refreshes the current season.",
+    "help_chinese": "\u4e3b\u8981\u547d\u4ee4\uff1a/anime push\uff08\u4eca\u65e5\u756a\u7ec4\uff09\u3001/anime week\uff08\u672c\u5468\u756a\u7ec4\uff09\u3001/anime ova\uff08\u5df2\u9009\u5267\u573a\u7248/OVA\u756a\u7ec4\uff09\u3001/anime sub\uff08\u5f00\u542f\u81ea\u52a8\u63a8\u9001\uff09\u3002\n\u540e\u7f00\u4e5f\u652f\u6301\u4e2d\u6587\uff1a\u63a8\u9001\u3001\u672c\u5468\u3001\u5267\u573a\u7248\u3001\u8ba2\u9605\u3002\n/anime\u7ed1\u5b9a - \u7ed1\u5b9a\u5f53\u524d\u7fa4/\u4f1a\u8bdd\u4e3a WebUI \u63a8\u9001\u76ee\u6807\n/anime\u89e3\u7ed1 - \u89e3\u7ed1\u5f53\u524d\u76ee\u6807\n/anime\u5217\u8868 - \u67e5\u770b\u5f53\u524d\u76ee\u6807\u8ba2\u9605\n/anime\u5237\u65b0 - \u7ba1\u7406\u5458\u5237\u65b0\u5f53\u5b63\u52a8\u753b\n\u5728 AstrBot \u63d2\u4ef6\u8be6\u60c5\u9875\u6253\u5f00\u201c\u52a8\u753b\u8ba2\u9605\u201d\u8fdb\u884c\u7b5b\u9009\u548c\u52fe\u9009\u3002",
+    "command_usage": "\u547d\u4ee4\uff1a/anime help\u3001/anime push\u3001/anime week\u3001/anime ova\u3001/anime sub\uff08\u4e2d\u6587\u540e\u7f00\u4e5f\u652f\u6301\uff09"
+}
+
+
 DEFAULT_MESSAGE_TEMPLATES = {
     "push_not_subscribed": "订阅群没有订阅，请先使用 /anime 订阅 开启。",
     "push_no_anime": "未添加动画推送，请在 WebUI 勾选动画并保存订阅。",
-    "help_english": "Commands: /anime help, /anime push (today), /anime week (this week), /anime ova (selected movies/OVA), /anime sub (enable reminders).\nChinese suffixes are also supported: \u63a8\u9001\u3001\u672c\u5468\u3001\u5267\u573a\u7248\u3001\u8ba2\u9605\u3002\n/anime\u7ed1\u5b9a binds the current conversation, /anime\u89e3\u7ed1 removes it, /anime\u5217\u8868 shows subscriptions, and /anime\u5237\u65b0 refreshes the current season.",
-    "help_chinese": "\u4e3b\u8981\u547d\u4ee4：/anime push（\u4eca\u65e5\u756a\u7ec4）、/anime week（\u672c\u5468\u756a\u7ec4）、/anime ova（\u5df2\u9009\u5267\u573a\u7248/OVA\u756a\u7ec4）、/anime sub（\u5f00\u542f\u81ea\u52a8\u63a8\u9001）。\n\u540e\u7f00\u4e5f\u652f\u6301\u4e2d\u6587：\u63a8\u9001、\u672c\u5468、\u5267\u573a\u7248、\u8ba2\u9605。\n/anime\u7ed1\u5b9a - \u7ed1\u5b9a\u5f53\u524d\u7fa4/\u4f1a\u8bdd\u4e3a WebUI \u63a8\u9001\u76ee\u6807\n/anime\u89e3\u7ed1 - \u89e3\u7ed1\u5f53\u524d\u76ee\u6807\n/anime\u5217\u8868 - \u67e5\u770b\u5f53\u524d\u76ee\u6807\u8ba2\u9605\n/anime\u5237\u65b0 - \u7ba1\u7406\u5458\u5237\u65b0\u5f53\u5b63\u52a8\u753b\n\u5728 AstrBot \u63d2\u4ef6\u8be6\u60c5\u9875\u6253\u5f00“\u52a8\u753b\u8ba2\u9605”\u8fdb\u884c\u7b5b\u9009\u548c\u52fe\u9009。",
-    "command_usage": "\u547d\u4ee4：/anime help、/anime push、/anime week、/anime ova、/anime sub（\u4e2d\u6587\u540e\u7f00\u4e5f\u652f\u6301）",
+    "help_english": "Anime subscriptions\n/anime help — English help\n/anime帮助 — Chinese help\n/anime push / /anime推送 — Today's subscribed shows\n/anime week / /anime本周 — This week's subscribed shows\n/anime ova / /anime剧场版 — Selected movie and OVA release dates\n/anime sub / /anime订阅 — Enable reminders\n/anime sub off / /anime订阅 关闭 — Disable reminders\n/anime bind / /anime绑定 — Add this conversation as a push target\n/anime unbind / /anime解绑 — Remove this target and its subscriptions\n/anime list / /anime列表 — List subscriptions\n/anime refresh / /anime刷新 — Refresh this season (administrators only)\nChinese commands also accept a space after anime. Choose shows and edit reminder text on the plugin management page.",
+    "help_chinese": "动画订阅命令\n/anime帮助：中文帮助；/anime help：英文帮助\n/anime推送 或 /anime push：今日订阅番组\n/anime本周 或 /anime week：本周订阅番组\n/anime剧场版 或 /anime ova：已订阅的剧场版与 OVA 上映日期\n/anime订阅 或 /anime sub：开启自动提醒\n/anime订阅 关闭 或 /anime sub off：关闭自动提醒\n/anime绑定 或 /anime bind：添加当前会话为推送目标\n/anime解绑 或 /anime unbind：移除当前推送目标及其订阅\n/anime列表 或 /anime list：查看当前会话的订阅\n/anime刷新 或 /anime refresh：重新获取当季番组，仅限管理员\n中文命令也可加空格，例如 /anime 推送。选择作品、保存订阅和修改消息文本，请打开插件管理页。",
+    "command_usage": "用法：/anime help（英文帮助）或 /anime帮助（中文帮助）。常用命令：/anime push（推送）、week（本周）、ova（剧场版）、sub（订阅）、bind（绑定）、unbind（解绑）、list（列表）、refresh（刷新，仅管理员）。中文写法也可直接接在 anime 后，例如 /anime推送。",
     "bind_success": "\u5df2\u7ed1\u5b9a\u5f53\u524d\u4f1a\u8bdd。\u73b0\u5728\u53ef\u4ee5\u5728 WebUI \u4e2d\u9009\u62e9\u5b83\u4f5c\u4e3a\u52a8\u753b\u63d0\u9192\u76ee\u6807。",
     "bind_failure": "\u65e0\u6cd5\u8bc6\u522b\u5f53\u524d\u4f1a\u8bdd\u76ee\u6807，\u8bf7\u68c0\u67e5 AstrBot \u7248\u672c。",
     "unbind_success": "\u5f53\u524d\u4f1a\u8bdd\u5df2\u89e3\u7ed1，\u76f8\u5173\u52a8\u753b\u8ba2\u9605\u4e5f\u5df2\u79fb\u9664。",
@@ -85,12 +92,18 @@ DEFAULT_MESSAGE_TEMPLATES = {
 
 # Older stores persisted the full defaults; match the whole template to preserve edits.
 LEGACY_DEFAULT_MESSAGE_TEMPLATES = {
-    "help_chinese": DEFAULT_MESSAGE_TEMPLATES["help_chinese"]
-        .replace("\u4eca\u65e5\u756a\u7ec4", "\u4eca\u65e5\u64ad\u653e\u8868")
-        .replace("\u672c\u5468\u756a\u7ec4", "\u672c\u5468\u64ad\u653e\u8868")
-        .replace("OVA\u756a\u7ec4", "OVA\u4e0a\u6620\u8868"),
-    "refresh_result": "\u52a8\u753b\u8868\u5237\u65b0\u5b8c\u6210：{count} \u90e8\u4f5c\u54c1。{failed_sources}",
+    "help_english": (_PREVIOUS_HELP_TEMPLATES["help_english"],),
+    "help_chinese": (
+        _PREVIOUS_HELP_TEMPLATES["help_chinese"],
+        _PREVIOUS_HELP_TEMPLATES["help_chinese"]
+        .replace("今日番组", "今日播放表")
+        .replace("本周番组", "本周播放表")
+        .replace("OVA番组", "OVA上映表"),
+    ),
+    "command_usage": (_PREVIOUS_HELP_TEMPLATES["command_usage"],),
+    "refresh_result": ("动画表刷新完成：{count} 部作品。{failed_sources}",),
 }
+
 
 _FORMATTER = Formatter()
 

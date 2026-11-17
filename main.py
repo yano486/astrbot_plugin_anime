@@ -29,7 +29,7 @@ from .core.time_utils import BJ, JST
 plugin_logger = get_plugin_logger()
 
 
-PLUGIN_VERSION = "0.3.23"
+PLUGIN_VERSION = "0.3.24"
 
 
 @register("astrbot_plugin_anime", "486", "日本动画季度订阅和排期提醒", PLUGIN_VERSION)
@@ -268,6 +268,8 @@ class AnimePlugin(Star):
         full = message.split(maxsplit=2)
         if len(full) >= 2 and full[0].casefold() == "anime":
             tokens = full[1:]
+        elif full and full[0].casefold().startswith("anime") and len(full[0]) > 5:
+            tokens = [full[0][5:], " ".join(full[1:])]
         if tokens and tokens[0].lstrip("/").casefold() == "anime":
             tokens = tokens[1:]
         elif tokens and tokens[0].lstrip("/").casefold().startswith("anime") and len(tokens[0]) > 5:
@@ -286,6 +288,10 @@ class AnimePlugin(Star):
             "week": "week", "本周": "week",
             "ova": "ova", "剧场版": "ova", "电影": "ova",
             "sub": "sub", "订阅": "sub",
+            "bind": "bind", "绑定": "bind",
+            "unbind": "unbind", "解绑": "unbind",
+            "list": "list", "列表": "list",
+            "refresh": "refresh", "刷新": "refresh",
         }
         return aliases.get(raw, raw), extra
 
@@ -318,7 +324,17 @@ class AnimePlugin(Star):
 
     @filter.command("anime")
     async def anime_command(self, event: AstrMessageEvent, action: str = ""):
-        """Anime schedule tables, subscriptions, help, and reminder management."""
+        """查看命令用法；英文子命令和中文写法见下方各项。"""
+        parts = str(getattr(event, "message_str", "")).strip().lstrip("/").split()
+        if len(parts) > 1 and parts[1] in {
+            "help", "帮助", "push", "推送", "week", "本周", "ova", "剧场版", "电影",
+            "sub", "订阅", "bind", "绑定", "unbind", "解绑", "list", "列表", "refresh", "刷新",
+        }:
+            return
+        async for result in self._run_anime_command(event, action):
+            yield result
+
+    async def _run_anime_command(self, event: AstrMessageEvent, action: str = ""):
         action_name, extra = self._action_name(event, action)
         if action_name == "help":
             yield event.plain_result(self._reply("help_english"))
@@ -423,14 +439,43 @@ class AnimePlugin(Star):
         rows = airings_between(selected_items, start, end)
         yield await self._send_airings_image(event, title, rows)
 
-    @filter.command("anime帮助")
+    @filter.command("anime help")
+    async def english_help(self, event: AstrMessageEvent):
+        """/anime help：查看英文帮助；中文帮助用 /anime 帮助 或 /anime帮助。"""
+        yield event.plain_result(self._reply("help_english"))
+
+    @filter.command("anime push", alias={"anime 推送", "anime推送"})
+    async def push(self, event: AstrMessageEvent):
+        """/anime push 或 /anime推送：查看当前会话今天订阅的番组。"""
+        async for result in self._run_anime_command(event, "push"):
+            yield result
+
+    @filter.command("anime week", alias={"anime 本周", "anime本周"})
+    async def week(self, event: AstrMessageEvent):
+        """/anime week 或 /anime本周：查看当前会话本周订阅的番组。"""
+        async for result in self._run_anime_command(event, "week"):
+            yield result
+
+    @filter.command("anime ova", alias={"anime 剧场版", "anime剧场版", "anime 电影"})
+    async def ova(self, event: AstrMessageEvent):
+        """/anime ova 或 /anime剧场版：查看已订阅的剧场版与 OVA 上映日期。"""
+        async for result in self._run_anime_command(event, "ova"):
+            yield result
+
+    @filter.command("anime sub", alias={"anime 订阅", "anime订阅"})
+    async def subscribe(self, event: AstrMessageEvent, mode: str = ""):
+        """/anime sub 或 /anime订阅：开启提醒；关闭用 /anime sub off 或 /anime订阅 关闭。"""
+        async for result in self._run_anime_command(event, f"sub {mode}".strip()):
+            yield result
+
+    @filter.command("anime帮助", alias={"anime 帮助"})
     async def help(self, event: AstrMessageEvent):
-        """Show the Chinese command help message."""
+        """/anime帮助 或 /anime 帮助：查看中文帮助；英文帮助用 /anime help。"""
         yield event.plain_result(self._reply("help_chinese"))
 
-    @filter.command("anime绑定")
+    @filter.command("anime bind", alias={"anime 绑定", "anime绑定"})
     async def bind_target(self, event: AstrMessageEvent):
-        """Bind the current conversation as a WebUI push target."""
+        """/anime bind 或 /anime绑定：将当前群聊或私聊添加为推送目标。"""
         target_id = getattr(event, "unified_msg_origin", None)
         if not target_id:
             yield event.plain_result(self._reply("bind_failure"))
@@ -444,9 +489,9 @@ class AnimePlugin(Star):
         self.store.save()
         yield event.plain_result(self._reply("bind_success"))
 
-    @filter.command("anime解绑")
+    @filter.command("anime unbind", alias={"anime 解绑", "anime解绑"})
     async def unbind_target(self, event: AstrMessageEvent):
-        """Unbind the current conversation and remove its subscriptions."""
+        """/anime unbind 或 /anime解绑：移除当前推送目标及其订阅。"""
         target_id = getattr(event, "unified_msg_origin", None)
         if not target_id:
             yield event.plain_result(self._reply("unbind_failure"))
@@ -455,9 +500,9 @@ class AnimePlugin(Star):
         self.store.save()
         yield event.plain_result(self._reply("unbind_success"))
 
-    @filter.command("anime列表")
+    @filter.command("anime list", alias={"anime 列表", "anime列表"})
     async def list_subscriptions(self, event: AstrMessageEvent):
-        """List enabled subscriptions for the current conversation."""
+        """/anime list 或 /anime列表：查看当前会话已启用的动画订阅。"""
         target_id = getattr(event, "unified_msg_origin", "")
         titles = {item.key: item.title_cn or item.title for item in self.store.get_items()}
         subs = self.store.get_subscriptions(target_id)
@@ -471,9 +516,9 @@ class AnimePlugin(Star):
         yield event.plain_result(self._reply("list_result", {"subscriptions": "\n".join(lines)}))
 
     @filter.permission_type(filter.PermissionType.ADMIN)
-    @filter.command("anime刷新")
+    @filter.command("anime refresh", alias={"anime 刷新", "anime刷新"})
     async def refresh(self, event: AstrMessageEvent):
-        """Refresh the current season catalog; administrator only."""
+        """/anime refresh 或 /anime刷新：重新获取当季番组，仅限管理员。"""
         result = await self.refresh_service.refresh(self.current_season())
         failed = [name for name, status in result["sources"].items() if status["status"] == "error"]
         failed_text = " 失败来源：" + ", ".join(failed) if failed else ""

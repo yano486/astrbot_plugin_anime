@@ -13,16 +13,16 @@ SCHEDULE_SOURCES = {"earliest", "yuc", "bgmlist", "bangumi"}
 DISPLAY_TIMEZONES = {"Asia/Shanghai", "Asia/Tokyo"}
 TABLE_TIME_PATTERN = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
 API_ROUTE_DEFINITIONS = (
-    ("status", "status", ("GET",), "Anime plugin status"),
-    ("preferences", "preferences", ("GET", "POST"), "Schedule and display preferences"),
-    ("items", "items", ("GET",), "Anime catalog"),
-    ("targets", "targets", ("GET",), "Bound targets"),
-    ("targets/umo", "add_umo_target", ("POST",), "Add AstrBot UMO target"),
-    ("targets/whitelist", "update_whitelist", ("POST",), "Update target whitelist"),
-    ("subscriptions", "subscriptions", ("GET", "POST"), "Anime subscriptions"),
-    ("movie-release", "movie_release", ("POST",), "Set movie release time"),
-    ("test-push", "test_push", ("POST",), "Send a test message"),
-    ("refresh", "refresh", ("POST",), "Refresh catalog"),
+    ("status", "status", ("GET",), "查看插件状态和数据获取情况"),
+    ("preferences", "preferences", ("GET", "POST"), "读取或保存排期、推送和显示设置"),
+    ("items", "items", ("GET",), "查看和筛选动画片单"),
+    ("targets", "targets", ("GET",), "查看已绑定的推送目标"),
+    ("targets/umo", "add_umo_target", ("POST",), "通过会话标识添加推送目标"),
+    ("targets/whitelist", "update_whitelist", ("POST",), "修改推送白名单"),
+    ("subscriptions", "subscriptions", ("GET", "POST"), "读取或保存动画订阅"),
+    ("movie-release", "movie_release", ("POST",), "设置剧场版或 OVA 的上映日期"),
+    ("test-push", "test_push", ("POST",), "发送测试消息或图片"),
+    ("refresh", "refresh", ("POST",), "重新获取番组数据"),
 )
 
 

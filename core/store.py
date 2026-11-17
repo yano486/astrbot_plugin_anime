@@ -49,7 +49,7 @@ class JsonStore:
         self.state.update(loaded)
         templates = self.state.get("preferences", {}).get("message_templates", {})
         for key, previous in LEGACY_DEFAULT_MESSAGE_TEMPLATES.items():
-            if templates.get(key) == previous:
+            if templates.get(key) in previous:
                 templates[key] = DEFAULT_MESSAGE_TEMPLATES[key]
         return self.state
 

@@ -1,0 +1,5 @@
+{
+  "help_english": "Commands: /anime help, /anime push (today), /anime week (this week), /anime ova (selected movies/OVA), /anime sub (enable reminders).\nChinese suffixes are also supported: 推送、本周、剧场版、订阅。\n/anime绑定 binds the current conversation, /anime解绑 removes it, /anime列表 shows subscriptions, and /anime刷新 refreshes the current season.",
+  "help_chinese": "主要命令：/anime push（今日番组）、/anime week（本周番组）、/anime ova（已选剧场版/OVA番组）、/anime sub（开启自动推送）。\n后缀也支持中文：推送、本周、剧场版、订阅。\n/anime绑定 - 绑定当前群/会话为 WebUI 推送目标\n/anime解绑 - 解绑当前目标\n/anime列表 - 查看当前目标订阅\n/anime刷新 - 管理员刷新当季动画\n在 AstrBot 插件详情页打开“动画订阅”进行筛选和勾选。",
+  "command_usage": "命令：/anime help、/anime push、/anime week、/anime ova、/anime sub（中文后缀也支持）"
+}
